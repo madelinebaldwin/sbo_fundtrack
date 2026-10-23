@@ -19,13 +19,13 @@
 
         <label class="sr-only" for="password">New password</label>
         <div class="field @error('password') field--error @enderror">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="12" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></svg>
+            <svg class="field__lock-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10V8a6 6 0 0 1 12 0v2"/><path d="M5 10h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/></svg>
             <input id="password" name="password" type="password" placeholder="New password" autocomplete="new-password" required>
         </div>
 
         <label class="sr-only" for="password_confirmation">Confirm new password</label>
         <div class="field">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="12" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></svg>
+            <svg class="field__lock-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10V8a6 6 0 0 1 12 0v2"/><path d="M5 10h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/></svg>
             <input id="password_confirmation" name="password_confirmation" type="password" placeholder="Confirm password" autocomplete="new-password" required>
         </div>
         @error('password') <p class="field-error" role="alert">{{ $message }}</p> @enderror

@@ -21,7 +21,7 @@ class PasswordResetLinkController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        if (config('mail.default') === 'log') {
+        if (in_array(config('mail.default'), ['log', 'array'], true)) {
             return back()->with('status', __('Password reset email delivery is not configured. Please try again later.'));
         }
 

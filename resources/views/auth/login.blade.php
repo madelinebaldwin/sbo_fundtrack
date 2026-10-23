@@ -21,7 +21,7 @@
 
         <label class="sr-only" for="password">Password</label>
         <div class="field @error('password') field--error @enderror">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="12" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></svg>
+            <svg class="field__lock-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10V8a6 6 0 0 1 12 0v2"/><path d="M5 10h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/></svg>
             <input id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
             <button class="visibility-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">
                 <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
