@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AcademicYear;
+use App\Models\Event;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -24,6 +25,7 @@ class EventCreationTest extends TestCase
             ->assertSee('Description')
             ->assertSee('Starts at')
             ->assertSee('Ends at')
+            ->assertDontSee('Archived')
             ->assertSee('Save Event');
     }
 
@@ -32,15 +34,17 @@ class EventCreationTest extends TestCase
         $academicYear = $this->createActiveAcademicYear();
         $eventManager = User::factory()->create(['role' => 'encoder']);
 
-        $this->actingAs($eventManager)
+        $response = $this->actingAs($eventManager)
             ->post(route('events.store'), [
                 'name' => 'Leadership Seminar',
                 'description' => 'Annual student leadership seminar.',
                 'starts_at' => '2026-11-02',
                 'ends_at' => '2026-11-03',
-                'status' => 'active',
-            ])
-            ->assertRedirect();
+                'status' => 'archived',
+            ]);
+
+        $event = Event::query()->firstOrFail();
+        $response->assertRedirect(route('events.manage.overview', $event));
 
         $this->assertDatabaseHas('events', [
             'academic_year_id' => $academicYear->id,
@@ -82,7 +86,7 @@ class EventCreationTest extends TestCase
             ->assertSessionHasErrors(['name', 'starts_at', 'ends_at']);
     }
 
-    public function test_event_status_and_date_formats_are_validated(): void
+    public function test_event_date_formats_are_validated(): void
     {
         $this->createActiveAcademicYear();
         $eventManager = User::factory()->create(['role' => 'encoder']);
@@ -93,10 +97,9 @@ class EventCreationTest extends TestCase
                 'name' => 'Leadership Seminar',
                 'starts_at' => 'November 2, 2026',
                 'ends_at' => 'not-a-date',
-                'status' => 'upcoming',
             ])
             ->assertRedirect(route('events.create'))
-            ->assertSessionHasErrors(['starts_at', 'ends_at', 'status']);
+            ->assertSessionHasErrors(['starts_at', 'ends_at']);
 
         $this->assertDatabaseCount('events', 0);
     }

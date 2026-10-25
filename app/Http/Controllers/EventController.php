@@ -17,14 +17,23 @@ class EventController extends Controller
     {
         $request->validate([
             'search' => ['nullable', 'string', 'max:160'],
-            'status' => ['nullable', Rule::in(['active', 'archived'])],
         ]);
 
         $events = Event::query()
             ->with('academicYear')
             ->withCount(['collections', 'expenses'])
+            ->addSelect([
+                'total_collected' => DB::table('contributions')
+                    ->join('collections', 'collections.id', '=', 'contributions.collection_id')
+                    ->selectRaw('COALESCE(SUM(contributions.amount), 0)')
+                    ->whereColumn('collections.event_id', 'events.id')
+                    ->where('contributions.status', 'posted'),
+                'total_expenses' => DB::table('expenses')
+                    ->selectRaw('COALESCE(SUM(expenses.amount), 0)')
+                    ->whereColumn('expenses.event_id', 'events.id')
+                    ->where('expenses.status', 'approved'),
+            ])
             ->when($request->filled('search'), fn ($query) => $query->where('name', 'like', '%'.$request->string('search')->toString().'%'))
-            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->latest('event_date')
             ->paginate(15)
             ->withQueryString();
@@ -44,7 +53,6 @@ class EventController extends Controller
             'description' => ['nullable', 'string', 'max:5000'],
             'starts_at' => ['required', 'date_format:Y-m-d'],
             'ends_at' => ['required', 'date_format:Y-m-d', 'after_or_equal:starts_at'],
-            'status' => ['required', Rule::in(['active', 'archived'])],
         ]);
         $academicYear = AcademicYear::query()->where('is_active', true)->firstOrFail();
         $event = DB::transaction(function () use ($data, $request, $activityLogger, $academicYear): Event {
@@ -53,13 +61,14 @@ class EventController extends Controller
                 'academic_year_id' => $academicYear->id,
                 'created_by' => $request->user()->id,
                 'event_date' => $data['starts_at'],
+                'status' => 'active',
             ]);
             $activityLogger->record('event.created', 'Created event: '.$event->name, $event);
 
             return $event;
         });
 
-        return redirect()->route('events.show', $event)->with('status', 'Event created.');
+        return redirect()->route('events.manage.overview', $event)->with('status', 'Event created.');
     }
 
     public function show(Event $event): View
@@ -89,20 +98,22 @@ class EventController extends Controller
             $activityLogger->record('event.updated', 'Updated event: '.$event->name, $event);
         });
 
-        return redirect()->route('events.show', $event)->with('status', 'Event updated.');
+        return redirect()->route('events.manage.overview', $event)->with('status', 'Event updated.');
     }
 
-    public function archive(Event $event, ActivityLogger $activityLogger): RedirectResponse
+    public function destroy(Event $event, ActivityLogger $activityLogger): RedirectResponse
     {
         DB::transaction(function () use ($event, $activityLogger): void {
             $lockedEvent = Event::query()->lockForUpdate()->findOrFail($event->id);
-            if ($lockedEvent->status !== 'archived') {
-                $lockedEvent->update(['status' => 'archived']);
-                $activityLogger->record('event.archived', 'Archived event: '.$lockedEvent->name, $lockedEvent);
-            }
+            abort_if($lockedEvent->collections()->exists() || $lockedEvent->expenses()->exists(), 409, 'Events with financial records cannot be deleted.');
+
+            $activityLogger->record('event.deleted', 'Deleted event: '.$lockedEvent->name, $lockedEvent, [
+                'academic_year_id' => $lockedEvent->academic_year_id,
+            ]);
+            $lockedEvent->delete();
         });
 
-        return redirect()->route('events.index')->with('status', 'Event archived. Financial records were retained.');
+        return redirect()->route('events.index')->with('status', 'Event deleted.');
     }
 
     /** @return array<string, array<int, string|Rule>> */

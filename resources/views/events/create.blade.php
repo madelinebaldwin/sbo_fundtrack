@@ -26,13 +26,6 @@
                     @error('ends_at')<span class="form-error" id="event-ends-at-error">{{ $message }}</span>@enderror
                 </label>
 
-                <label class="event-create-field event-create-field--status" for="event-status">Status
-                    <select id="event-status" name="status" required @error('status') aria-invalid="true" aria-describedby="event-status-error" @enderror>
-                        <option value="active" @selected(old('status', 'active') === 'active')>Active</option>
-                        <option value="archived" @selected(old('status') === 'archived')>Archived</option>
-                    </select>
-                    @error('status')<span class="form-error" id="event-status-error">{{ $message }}</span>@enderror
-                </label>
             </div>
 
             <div class="event-create-actions">

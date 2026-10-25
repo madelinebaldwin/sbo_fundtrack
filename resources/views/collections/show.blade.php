@@ -2,8 +2,8 @@
 
 @section('content')
     @php($remaining = $expected - (float) $collected)
-    @php($contributionColumns = auth()->user()->can('review-expenses') ? 8 : 7)
-    <div class="page-toolbar"><div><span class="status-pill status-pill--{{ $collection->status }}">{{ ucfirst($collection->status) }}</span><h2 class="page-title">{{ $collection->year_section }} · {{ $collection->event->name }}</h2></div><div class="row-actions"><a class="button button--outline" href="{{ route('collections.index') }}">Back to Collections</a>@can('review-expenses') @if($collection->status === 'active')<form method="POST" action="{{ route('collections.close', $collection) }}" data-confirm="Close this collection? No new contributions can be recorded afterward.">@csrf @method('PATCH')<button class="button button--muted" type="submit">Close Collection</button></form>@endif @endcan</div></div>
+    @php($contributionColumns = auth()->user()->can('review-expenses') ? 7 : 6)
+    <div class="page-toolbar"><div><h2 class="page-title">{{ $collection->year_section }} · {{ $collection->event->name }}</h2></div><div class="row-actions"><a class="button button--outline" href="{{ route('collections.index') }}">Back to Collections</a>@can('review-expenses') @if($collection->status === 'active')<form method="POST" action="{{ route('collections.close', $collection) }}" data-confirm="Close this collection? No new contributions can be recorded afterward.">@csrf @method('PATCH')<button class="button button--muted" type="submit">Close Collection</button></form>@endif @endcan</div></div>
     <section class="detail-grid">
         <article class="detail-card"><small>Academic year</small><strong>{{ $collection->event->academicYear->name }}</strong></article>
         <article class="detail-card"><small>Students recorded / expected</small><strong>{{ number_format($studentsRecorded) }} / {{ number_format($collection->student_count) }}</strong></article>
@@ -34,9 +34,9 @@
     @endcan
 
     <section class="panel section-gap"><div class="panel-heading"><div><p class="eyebrow">Recorded payments</p><h2>Contribution history</h2></div></div>
-        <div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Student reference</th><th>Method</th><th>Reference</th><th class="numeric">Amount</th><th>Status</th><th>Recorded by</th>@can('review-expenses')<th>Correction</th>@endcan</tr></thead><tbody>
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Student reference</th><th>Method</th><th>Reference</th><th class="numeric">Amount</th><th>Recorded by</th>@can('review-expenses')<th>Correction</th>@endcan</tr></thead><tbody>
             @forelse ($contributions as $contribution)
-                <tr><td>{{ $contribution->paid_at->format('M j, Y') }}</td><td>{{ $contribution->student_reference }}</td><td>{{ ucfirst($contribution->payment_method) }}</td><td>{{ $contribution->reference_number ?: '—' }}</td><td class="numeric">{{ \App\Support\Currency::format((float) $contribution->amount) }}</td><td><span class="status-pill status-pill--{{ $contribution->status }}">{{ ucfirst($contribution->status) }}</span></td><td>{{ $contribution->recorder?->name ?? 'System' }}</td>
+                <tr><td>{{ $contribution->paid_at->format('M j, Y') }}</td><td>{{ $contribution->student_reference }}</td><td>{{ ucfirst($contribution->payment_method) }}</td><td>{{ $contribution->reference_number ?: '—' }}</td><td class="numeric">{{ \App\Support\Currency::format((float) $contribution->amount) }}</td><td>{{ $contribution->recorder?->name ?? 'System' }}</td>
                     @can('review-expenses')<td>@if($contribution->status === 'posted')<form class="row-actions" method="POST" action="{{ route('contributions.void', $contribution) }}">@csrf @method('PATCH')<input class="form-control correction-reason" name="reason" placeholder="Correction reason" aria-label="Correction reason" required><button class="button button--danger button--small" type="submit" data-confirm="Void this contribution? It will be retained in the audit trail.">Void</button></form>@else — @endif</td>@endcan
                 </tr>
             @empty

@@ -208,6 +208,83 @@ a { color: inherit; }
 .event-create-actions .button--outline { border: 3px solid #301878; color: #090909; background: transparent; }
 .event-create-actions .button--outline:hover { background: #efedf4; }
 .event-create-actions .button--primary { border: 3px solid #301878; }
+.event-management-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 18px; margin: 0 0 18px; }
+.event-management-heading h2 { overflow: hidden; margin: 0; font-size: clamp(27px, 3.2vw, 40px); font-weight: 600; line-height: 1.15; text-overflow: ellipsis; }
+.event-management-tabs { display: flex; width: 100%; min-width: 0; overflow-x: auto; margin-bottom: 22px; border: 1.5px solid #301878; border-radius: 7px; scrollbar-width: thin; }
+.event-management-tab { display: inline-flex; min-height: 58px; flex: 1 0 auto; align-items: center; justify-content: center; padding: 10px clamp(14px, 2vw, 26px); color: #301878; font-size: clamp(14px, 1.45vw, 20px); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.event-management-tab:hover { background: #efedf4; }
+.event-management-tab.is-active { color: #fff; background: #301878; }
+.event-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }
+.event-summary-card { min-width: 0; min-height: 150px; padding: 20px; border: 1.5px solid #301878; border-radius: 7px; }
+.event-summary-card h3, .event-chart-panel h3, .event-details-panel h3, .event-budget-panel h3, .event-table-heading h3, .event-section-heading h3, .event-payment-panel h3, .event-report-toolbar h3, .event-history-panel h3 { margin: 0; font-size: clamp(19px, 2vw, 26px); font-weight: 600; line-height: 1.25; }
+.event-summary-card p { margin: 22px 0 0; font-size: clamp(21px, 2.5vw, 32px); font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.event-summary-card .is-negative { color: #a12636; }
+.event-overview-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(245px, .65fr); gap: 18px; align-items: stretch; }
+.event-details-panel, .event-budget-panel, .event-chart-panel, .event-history-panel, .event-payment-panel { border-width: 1.5px; border-radius: 2px; }
+.event-details-panel { min-height: 365px; padding: 18px; }
+.event-details-panel dl { display: grid; gap: 18px; margin: 26px 0 0; }
+.event-details-panel dl > div { display: grid; grid-template-columns: minmax(125px, .42fr) minmax(0, 1fr); gap: 14px; align-items: baseline; }
+.event-details-panel dt { color: #666; font-size: 14px; font-weight: 600; }
+.event-details-panel dd { min-width: 0; margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.event-details-panel .event-details-description { align-items: start; }
+.event-budget-panel { display: flex; min-height: 365px; flex-direction: column; align-items: center; justify-content: space-between; padding: 20px 18px; text-align: center; }
+.event-budget-panel h3 { font-size: 24px; }
+.event-budget-value { margin: 6px 0 0; color: #555; font-size: 14px; }
+.event-budget-visual { position: relative; display: flex; width: min(100%, 155px); height: 230px; align-items: flex-end; overflow: hidden; border: 1.5px solid #301878; border-radius: 2px; background: #e7e7e7; }
+.event-budget-fill { width: 100%; background: #301878; transition: height .2s ease; }
+.event-budget-legend { display: flex; width: 100%; justify-content: space-around; gap: 12px; }
+.event-budget-legend p { display: grid; gap: 2px; margin: 0; }
+.event-budget-legend strong { font-size: 20px; }
+.event-budget-legend span { color: #666; font-size: 12px; }
+.event-budget-empty { max-width: 190px; margin: auto; color: #666; font-size: 14px; }
+.event-collection-goal { margin-bottom: 20px; }
+.event-section-heading, .event-table-heading, .event-report-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.event-section-heading { margin-bottom: 10px; }
+.event-section-heading .eyebrow { margin: 0 0 3px; color: #555; font-size: 13px; }
+.event-section-heading h3 { font-size: clamp(20px, 2.3vw, 28px); }
+.event-goal-progress-label { color: #301878; font-size: 22px; font-weight: 600; }
+.event-progress-track { width: 100%; height: 24px; overflow: hidden; border: 1.5px solid #301878; border-radius: 6px; background: #dedede; }
+.event-progress-track span { display: block; height: 100%; background: #301878; transition: width .2s ease; }
+.event-collection-goal > .form-help { margin: 8px 0 0; }
+.event-table-heading { margin: 0 0 12px; }
+.event-management-table .data-table { min-width: 720px; }
+.event-expense-filter { margin: 0 0 12px; }
+.event-expense-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 190px; }
+.event-expense-review { display: flex; flex-wrap: nowrap; align-items: center; gap: 5px; }
+.event-expense-review select { min-height: 34px; max-width: 120px; padding: 5px 7px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 12px; }
+.event-payment-panel { width: min(100%, 720px); margin-inline: auto; padding: clamp(20px, 3vw, 38px); }
+.event-payment-panel h3 { margin-bottom: 22px; }
+.event-payment-context { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.event-payment-context p { display: grid; gap: 5px; margin: 0; }
+.event-payment-context span { color: #666; font-size: 12px; }
+.event-payment-context strong { font-size: 15px; overflow-wrap: anywhere; }
+.event-payment-panel .form-actions { justify-content: flex-end; }
+.event-report-toolbar { margin: 0 0 18px; }
+.event-report-toolbar h3 { font-size: clamp(22px, 2.7vw, 34px); }
+.event-report-section { margin-bottom: 20px; }
+.event-report-section > h3 { margin: 0 0 10px; font-size: 18px; font-weight: 600; }
+.event-report-table { min-width: 680px; }
+.event-report-category th { background: #dedede; text-align: center; }
+.event-report-total th { border-top: 1.5px solid #222; }
+.event-signature-section { margin-top: 26px; }
+.event-signature-section .event-section-heading { margin-bottom: 14px; }
+.event-signature-list { display: grid; gap: 10px; }
+.event-signature-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.event-signature-row .form-field { font-size: 12px; }
+.event-report-exports { display: flex; justify-content: flex-end; gap: 12px; margin-top: 18px; }
+.event-chart-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; }
+.event-chart-panel { min-width: 0; padding: 18px; }
+.event-chart-panel h3 { margin-bottom: 14px; }
+.event-chart-wrap { position: relative; height: 320px; min-width: 0; }
+.event-chart-wrap--doughnut { height: 320px; }
+.event-history-panel { padding: 18px; }
+.event-history-panel .panel-heading { margin-bottom: 14px; }
+@media (max-width: 1000px) {
+    .event-summary-grid { gap: 10px; }
+    .event-summary-card { min-height: 128px; padding: 15px; }
+    .event-overview-grid { grid-template-columns: minmax(0, 1fr) minmax(210px, .65fr); gap: 12px; }
+    .event-chart-grid { grid-template-columns: 1fr; }
+}
 @media (min-width: 561px) and (max-height: 820px) {
     .app-content:has(.event-create-panel) { padding-block: 10px 14px; }
     .event-create-panel { padding-block: 10px 16px; }
@@ -300,6 +377,23 @@ a { color: inherit; }
     .filter-actions .button { flex: 1; }
     .filter-spacer { display: none; }
     .form-grid { grid-template-columns: 1fr; }
+    .event-management-heading { align-items: flex-start; gap: 8px; }
+    .event-management-heading h2 { font-size: 24px; }
+    .event-management-tabs { margin-bottom: 16px; }
+    .event-management-tab { min-height: 48px; padding-inline: 16px; font-size: 14px; }
+    .event-summary-grid { grid-template-columns: 1fr; gap: 10px; }
+    .event-summary-card { min-height: 92px; padding: 13px; }
+    .event-summary-card p { margin-top: 12px; font-size: 21px; }
+    .event-overview-grid { grid-template-columns: 1fr; }
+    .event-details-panel { min-height: 0; }
+    .event-budget-panel { min-height: 260px; }
+    .event-budget-visual { height: 170px; }
+    .event-payment-context { grid-template-columns: 1fr; }
+    .event-signature-row { grid-template-columns: 1fr 1fr; }
+    .event-signature-row .button { justify-self: start; }
+    .event-report-exports { justify-content: stretch; }
+    .event-report-exports .button { flex: 1; }
+    .event-chart-wrap, .event-chart-wrap--doughnut { height: 250px; }
     .event-create-panel { min-height: 0; padding: 20px 18px 24px; }
     .event-create-panel h2 { margin-bottom: 24px; font-size: clamp(30px, 8vw, 38px); }
     .event-create-fields { gap: 17px; }

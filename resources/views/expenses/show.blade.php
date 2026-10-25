@@ -1,7 +1,7 @@
 @extends('layouts.app', ['pageTitle' => 'Expense Details'])
 
 @section('content')
-    <div class="page-toolbar"><div><span class="status-pill status-pill--{{ $expense->status }}">{{ ucfirst($expense->status) }}</span><h2 class="page-title">{{ $expense->description }}</h2></div><div class="row-actions"><a class="button button--outline" href="{{ route('expenses.index') }}">Back to Expenses</a>@can('manage-finances')@if($expense->status === 'pending')<a class="button button--primary" href="{{ route('expenses.edit', $expense) }}">Edit</a>@endif @endcan</div></div>
+    <div class="page-toolbar"><div><h2 class="page-title">{{ $expense->description }}</h2></div><div class="row-actions"><a class="button button--outline" href="{{ route('expenses.index') }}">Back to Expenses</a>@can('manage-finances')@if($expense->status === 'pending')<a class="button button--primary" href="{{ route('expenses.edit', $expense) }}">Edit</a>@endif @endcan</div></div>
     <section class="detail-grid">
         <article class="detail-card"><small>Event</small><strong>{{ $expense->event->name }}</strong></article>
         <article class="detail-card"><small>Category</small><strong>{{ $expense->category->name }}</strong></article>

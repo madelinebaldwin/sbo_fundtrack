@@ -18,11 +18,11 @@
                 @php($expected = (float) $collection->amount_per_student * $collection->student_count)
                 @php($collected = (float) ($collection->collected_amount ?? 0))
                 <tr>
-                    <td>{{ $collection->event->academicYear->name }}</td><td>{{ $collection->year_section }}<br><span class="form-help"><span class="status-pill status-pill--{{ $collection->status }}">{{ ucfirst($collection->status) }}</span></span></td><td>{{ $collection->event->name }}</td>
-                    <td class="numeric">{{ number_format($collection->students_recorded_count) }} / {{ number_format($collection->student_count) }}</td>
+                    <td>{{ $collection->event->academicYear->name }}</td><td>{{ $collection->year_section }}</td><td>{{ $collection->event->name }}</td>
+                    <td class="numeric">{{ number_format($collection->student_count) }}</td>
                     <td class="numeric">{{ \App\Support\Currency::format($expected) }}</td><td class="numeric">{{ \App\Support\Currency::format($collected) }}</td>
                     <td class="numeric">@if($collected > $expected) Over by {{ \App\Support\Currency::format($collected - $expected) }} @else {{ \App\Support\Currency::format($expected - $collected) }} @endif</td>
-                    <td><a class="button button--primary button--small" href="{{ route('collections.show', $collection) }}">Manage</a></td>
+                    <td><div class="row-actions">@can('manage-finances')<a class="button button--primary button--small" href="{{ route('events.manage.collections.payment', [$collection->event, $collection]) }}">Manage</a>@else<a class="button button--primary button--small" href="{{ route('events.manage.collections', $collection->event) }}#collection-{{ $collection->id }}">Manage</a>@endcan @can('manage-finances')@if ($collection->contributions_count === 0)<form method="POST" action="{{ route('collections.destroy', $collection) }}" data-confirm="Delete this collection? This cannot be undone.">@csrf @method('DELETE')<button class="button button--danger button--small" type="submit">Delete</button></form>@else<button class="button button--danger button--small" type="button" disabled title="Collections with recorded contributions cannot be deleted.">Delete</button>@endif @endcan</div></td>
                 </tr>
             @empty
                 <tr><td colspan="8" class="table-empty">No collection targets match these filters. Add a target to start recording contributions.</td></tr>

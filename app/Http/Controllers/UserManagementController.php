@@ -81,4 +81,24 @@ class UserManagementController extends Controller
 
         return back()->with('status', 'User role updated.');
     }
+
+    public function destroy(User $user, ActivityLogger $activityLogger): RedirectResponse
+    {
+        abort_if($user->is(auth()->user()), 409, 'You cannot delete your own account.');
+
+        DB::transaction(function () use ($user, $activityLogger): void {
+            $lockedUser = User::query()->lockForUpdate()->findOrFail($user->id);
+            if ($lockedUser->isAdministrator()) {
+                $administratorCount = User::query()->where('role', 'administrator')->lockForUpdate()->get(['id'])->count();
+                abort_if($administratorCount <= 1, 409, 'The last administrator cannot be deleted.');
+            }
+
+            $activityLogger->record('user.deleted', 'Deleted account for '.$lockedUser->email, $lockedUser, [
+                'role' => $lockedUser->role,
+            ]);
+            $lockedUser->delete();
+        });
+
+        return back()->with('status', 'User account deleted.');
+    }
 }

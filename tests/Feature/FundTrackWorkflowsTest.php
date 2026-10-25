@@ -81,7 +81,7 @@ class FundTrackWorkflowsTest extends TestCase
             'description' => 'Workshop materials',
             'amount' => '250.00',
             'transaction_date' => now()->toDateString(),
-        ])->assertRedirect();
+        ])->assertRedirect(route('expenses.index'));
 
         $expense = Expense::query()->firstOrFail();
         $this->assertSame('0.00', app(FinancialReportService::class)->totals()['expenses']);

@@ -2,7 +2,7 @@
 
 @section('content')
     @php($collectedTotal = (float) $event->collections->sum(fn ($collection) => (float) $collection->collected_amount))
-    <div class="page-toolbar"><div><span class="status-pill status-pill--{{ $event->status }}">{{ ucfirst($event->status) }}</span><h2 class="page-title">{{ $event->name }}</h2></div><div class="row-actions"><a class="button button--outline" href="{{ route('events.index') }}">Back to Events</a>@can('manage-finances')<a class="button button--primary" href="{{ route('collections.create', ['event_id' => $event->id]) }}">Add Collection</a>@endcan @can('manage-events')@if($event->status !== 'archived')<a class="button button--outline" href="{{ route('events.edit', $event) }}">Edit Event</a>@endif @endcan</div></div>
+    <div class="page-toolbar"><div><h2 class="page-title">{{ $event->name }}</h2></div><div class="row-actions"><a class="button button--outline" href="{{ route('events.index') }}">Back to Events</a>@can('manage-finances')<a class="button button--primary" href="{{ route('collections.create', ['event_id' => $event->id]) }}">Add Collection</a>@endcan @can('manage-events')@if($event->status !== 'archived')<a class="button button--outline" href="{{ route('events.edit', $event) }}">Edit Event</a>@endif @endcan</div></div>
     <section class="detail-grid">
         <article class="detail-card"><small>Academic year</small><strong>{{ $event->academicYear->name }}</strong></article>
         <article class="detail-card"><small>Event date</small><strong>{{ $event->event_date?->format('M j, Y') ?? 'Not set' }}</strong></article>

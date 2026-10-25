@@ -36,10 +36,30 @@
             <div class="panel-heading"><div><p class="eyebrow">Latest entries</p><h2>Recent Transactions</h2></div><a class="text-link" href="{{ route('reports.index') }}">View all</a></div>
             <div class="table-wrap">
                 <table class="data-table data-table--compact">
-                    <thead><tr><th>Date</th><th>Type</th><th>Event</th><th>Description</th><th class="numeric">Amount</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Date</th><th>Type</th><th>Event</th><th>Description</th><th class="numeric">Amount</th><th>Action</th></tr></thead>
                     <tbody>
                         @forelse ($latestTransactions as $transaction)
-                            <tr><td>{{ \Illuminate\Support\Carbon::parse($transaction->transaction_date)->format('M j, Y') }}</td><td>{{ $transaction->transaction_type }}</td><td>{{ $transaction->event_name }}</td><td>{{ $transaction->description }}</td><td class="numeric">{{ \App\Support\Currency::format((float) $transaction->amount) }}</td><td><span class="status-pill status-pill--{{ $transaction->status }}">{{ ucfirst($transaction->status) }}</span></td></tr>
+                            <tr>
+                                <td>{{ \Illuminate\Support\Carbon::parse($transaction->transaction_date)->format('M j, Y') }}</td>
+                                <td>{{ $transaction->transaction_type }}</td>
+                                <td>{{ $transaction->event_name }}</td>
+                                <td>{{ $transaction->description }}</td>
+                                <td class="numeric">{{ \App\Support\Currency::format((float) $transaction->amount) }}</td>
+                                <td>
+                                    <div class="row-actions">
+                                        <a class="button button--outline button--small" href="{{ $transaction->source === 'expense' ? route('expenses.show', $transaction->target_id) : route('collections.show', $transaction->target_id) }}">View</a>
+                                        @if ($transaction->source === 'expense')
+                                            @can('manage-finances')
+                                                <form method="POST" action="{{ route('expenses.destroy', $transaction->target_id) }}" data-confirm="Delete this expense? This cannot be undone.">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button class="button button--danger button--small" type="submit">Delete</button>
+                                                </form>
+                                            @endcan
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
                         @empty
                             <tr><td colspan="6" class="table-empty">No posted transactions yet.</td></tr>
                         @endforelse

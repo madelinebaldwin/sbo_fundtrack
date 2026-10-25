@@ -49,7 +49,7 @@ class ReportController extends Controller
             fputcsv($output, ['Generated', now()->format('Y-m-d H:i:s T')]);
             fputcsv($output, ['Event', $this->safeCsvCell((string) $eventName), 'From', $filters['from'] ?? 'Any date', 'To', $filters['to'] ?? 'Any date']);
             fputcsv($output, []);
-            fputcsv($output, ['Transaction', 'Date', 'Event', 'Category', 'Description', 'Amount (PHP)', 'Status']);
+            fputcsv($output, ['Transaction', 'Date', 'Event', 'Category', 'Description', 'Amount (PHP)']);
 
             foreach ($transactions->cursor() as $transaction) {
                 fputcsv($output, [
@@ -59,7 +59,6 @@ class ReportController extends Controller
                     $this->safeCsvCell($transaction->category_name),
                     $this->safeCsvCell($transaction->description),
                     number_format((float) $transaction->amount, 2, '.', ''),
-                    $transaction->status,
                 ]);
             }
 

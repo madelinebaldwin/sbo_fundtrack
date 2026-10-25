@@ -81,7 +81,7 @@ document.querySelectorAll('canvas[data-fundtrack-chart]').forEach((canvas) => {
     }
 
     if (chartType === 'doughnut') {
-        const labels = values.map((item) => item.event_name);
+        const labels = values.map((item) => item.label ?? item.event_name);
         const amounts = values.map((item) => Number(item.amount));
         const total = amounts.reduce((sum, amount) => sum + amount, 0);
 
@@ -145,5 +145,55 @@ document.querySelectorAll('form.auth-form').forEach((form) => {
             submitButton.dataset.originalLabel = submitButton.textContent;
             submitButton.textContent = 'Please wait…';
         }
+    });
+});
+
+const signatureList = document.querySelector('[data-signature-list]');
+const addSignatureButton = document.querySelector('[data-signature-add]');
+
+const reindexSignatures = () => {
+    signatureList?.querySelectorAll('[data-signature-row]').forEach((row, index) => {
+        row.querySelectorAll('input').forEach((input) => {
+            input.name = input.name.replace(/signatures\[\d+\]/, `signatures[${index}]`);
+        });
+    });
+};
+
+addSignatureButton?.addEventListener('click', () => {
+    const firstRow = signatureList?.querySelector('[data-signature-row]');
+
+    if (!firstRow || !signatureList) {
+        return;
+    }
+
+    if (signatureList.querySelectorAll('[data-signature-row]').length >= 8) {
+        return;
+    }
+
+    const row = firstRow.cloneNode(true);
+    const rowIndex = signatureList.querySelectorAll('[data-signature-row]').length;
+    row.querySelectorAll('input').forEach((input) => {
+        input.value = '';
+        input.name = input.name.replace(/signatures\[\d+\]/, `signatures[${rowIndex}]`);
+    });
+    signatureList.append(row);
+});
+
+signatureList?.addEventListener('click', (event) => {
+    const removeButton = event.target.closest('[data-signature-remove]');
+
+    if (!removeButton) {
+        return;
+    }
+
+    const rows = signatureList.querySelectorAll('[data-signature-row]');
+    if (rows.length > 1) {
+        removeButton.closest('[data-signature-row]').remove();
+        reindexSignatures();
+        return;
+    }
+
+    rows[0].querySelectorAll('input').forEach((input) => {
+        input.value = '';
     });
 });

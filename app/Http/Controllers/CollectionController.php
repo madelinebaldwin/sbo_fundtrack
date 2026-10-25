@@ -9,7 +9,7 @@ use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CollectionController extends Controller
@@ -25,6 +25,7 @@ class CollectionController extends Controller
         $collections = Collection::query()
             ->with('event.academicYear')
             ->withCount(['contributions as students_recorded_count' => fn ($query) => $query->where('status', 'posted')])
+            ->withCount('contributions')
             ->withSum(['contributions as collected_amount' => fn ($query) => $query->where('status', 'posted')], 'amount')
             ->when($request->filled('search'), fn ($query) => $query->where('year_section', 'like', '%'.$request->string('search')->toString().'%'))
             ->when($request->filled('academic_year_id'), fn ($query) => $query->whereHas('event', fn ($eventQuery) => $eventQuery->where('academic_year_id', $request->integer('academic_year_id'))))
@@ -45,10 +46,35 @@ class CollectionController extends Controller
         return view('collections.create', [
             'events' => Event::query()->where('status', 'active')->with('academicYear')->orderBy('name')->get(),
             'selectedEventId' => $request->integer('event_id') ?: null,
+            'managementEvent' => null,
+        ]);
+    }
+
+    public function createForEvent(Event $event): View
+    {
+        abort_unless($event->status === 'active', 404);
+
+        return view('collections.create', [
+            'events' => Event::query()->whereKey($event->id)->with('academicYear')->get(),
+            'selectedEventId' => $event->id,
+            'managementEvent' => $event,
         ]);
     }
 
     public function store(Request $request, ActivityLogger $activityLogger): RedirectResponse
+    {
+        return $this->persist($request, $activityLogger);
+    }
+
+    public function storeForEvent(Request $request, Event $event, ActivityLogger $activityLogger): RedirectResponse
+    {
+        abort_unless($event->status === 'active', 404);
+        $request->merge(['event_id' => $event->id]);
+
+        return $this->persist($request, $activityLogger, $event);
+    }
+
+    private function persist(Request $request, ActivityLogger $activityLogger, ?Event $managementEvent = null): RedirectResponse
     {
         $data = $request->validate([
             'event_id' => ['required', 'integer', 'exists:events,id'],
@@ -62,9 +88,20 @@ class CollectionController extends Controller
         $data['year_section'] = trim($data['year_level']).' - '.trim($data['section']);
         unset($data['year_level'], $data['section']);
 
-        abort_unless(Event::query()->whereKey($data['event_id'])->where('status', 'active')->exists(), 422, 'Select an active event.');
-
         $collection = DB::transaction(function () use ($data, $request, $activityLogger): Collection {
+            $event = Event::query()->lockForUpdate()->findOrFail($data['event_id']);
+            abort_unless($event->status === 'active', 422, 'Select an active event.');
+
+            $duplicateClassExists = $event->collections()
+                ->whereRaw('LOWER(year_section) = ?', [strtolower($data['year_section'])])
+                ->exists();
+
+            if ($duplicateClassExists) {
+                throw ValidationException::withMessages([
+                    'section' => 'A collection for this year level and section already exists for this event.',
+                ]);
+            }
+
             $collection = Collection::create([
                 ...$data,
                 'created_by' => $request->user()->id,
@@ -75,25 +112,20 @@ class CollectionController extends Controller
             return $collection;
         });
 
-        return redirect()->route('collections.show', $collection)->with('status', 'Collection target created. Contributions must be recorded separately.');
+        $redirect = $managementEvent
+            ? redirect()->route('events.manage.collections', $managementEvent)
+            : redirect()->route('collections.index');
+
+        return $redirect->with('status', 'Collection target created. Contributions must be recorded separately.');
     }
 
-    public function show(Collection $collection): View
+    public function show(Collection $collection): RedirectResponse
     {
-        $collection->load('event.academicYear');
-        $contributions = $collection->contributions()->with('recorder:id,name')->latest('paid_at')->paginate(20);
-        $collected = $collection->contributions()->where('status', 'posted')->sum('amount');
-        $studentsRecorded = $collection->contributions()->where('status', 'posted')->count();
-        $expected = (float) $collection->amount_per_student * $collection->student_count;
+        if (auth()->user()->can('manage-finances')) {
+            return redirect()->route('events.manage.collections.payment', [$collection->event_id, $collection]);
+        }
 
-        return view('collections.show', [
-            'collection' => $collection,
-            'contributions' => $contributions,
-            'collected' => $collected,
-            'expected' => $expected,
-            'studentsRecorded' => $studentsRecorded,
-            'submissionKey' => (string) Str::uuid(),
-        ]);
+        return redirect()->to(route('events.manage.collections', $collection->event_id).'#collection-'.$collection->id);
     }
 
     public function close(Collection $collection, ActivityLogger $activityLogger): RedirectResponse
@@ -106,5 +138,33 @@ class CollectionController extends Controller
         });
 
         return back()->with('status', 'Collection closed. Existing contributions remain in the audit trail.');
+    }
+
+    public function destroy(Collection $collection, ActivityLogger $activityLogger): RedirectResponse
+    {
+        $this->deleteEmptyCollection($collection, $activityLogger);
+
+        return redirect()->route('collections.index')->with('status', 'Collection deleted.');
+    }
+
+    public function destroyForEvent(Event $event, Collection $collection, ActivityLogger $activityLogger): RedirectResponse
+    {
+        abort_unless($event->collections()->whereKey($collection->id)->exists(), 404);
+        $this->deleteEmptyCollection($collection, $activityLogger);
+
+        return redirect()->route('events.manage.collections', $event)->with('status', 'Collection deleted.');
+    }
+
+    private function deleteEmptyCollection(Collection $collection, ActivityLogger $activityLogger): void
+    {
+        DB::transaction(function () use ($collection, $activityLogger): void {
+            $lockedCollection = Collection::query()->lockForUpdate()->findOrFail($collection->id);
+            abort_if($lockedCollection->contributions()->exists(), 409, 'Collections with recorded contributions cannot be deleted.');
+
+            $activityLogger->record('collection.deleted', 'Deleted collection target for '.$lockedCollection->year_section, $lockedCollection, [
+                'event_id' => $lockedCollection->event_id,
+            ]);
+            $lockedCollection->delete();
+        });
     }
 }
