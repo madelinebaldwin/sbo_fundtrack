@@ -51,6 +51,7 @@ Route::middleware(['auth', 'can:view-finances'])->group(function (): void {
         Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroyForEvent'])->middleware('can:manage-finances')->name('expenses.destroy');
         Route::patch('/expenses/{expense}/review', [ExpenseController::class, 'reviewForEvent'])->middleware('can:review-expenses')->name('expenses.review');
         Route::get('/reports', [EventManagementController::class, 'reports'])->name('reports');
+        Route::post('/reports/signatures', [EventReportController::class, 'saveSignatures'])->middleware('can:manage-finances')->name('reports.signatures');
         Route::post('/reports/pdf', [EventReportController::class, 'pdf'])->name('reports.pdf');
         Route::post('/reports/docx', [EventReportController::class, 'docx'])->name('reports.docx');
         Route::get('/analytics', [EventManagementController::class, 'analytics'])->name('analytics');

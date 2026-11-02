@@ -3,7 +3,9 @@
 @section('content')
     <header class="auth-heading auth-heading--forgot">
         <h2 id="page-title">Forgot Password</h2>
-        <p>Enter your email and we'll send you a password reset link.</p>
+        @unless (session('status'))
+            <p>Enter the email address used for your account.</p>
+        @endunless
     </header>
 
     @if (session('status'))

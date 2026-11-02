@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Services\ActivityLogger;
 use App\Services\EventReportExporter;
 use App\Services\FinancialReportService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
@@ -28,24 +29,22 @@ class EventReportController extends Controller
         return $this->export($request, $event, 'docx');
     }
 
+    public function saveSignatures(Request $request, Event $event): RedirectResponse
+    {
+        $event->update(['report_signatures' => $this->validatedSignatures($request)]);
+
+        return redirect()->route('events.manage.reports', $event)->with('status', 'Report signatures saved and updated on the report.');
+    }
+
     private function export(Request $request, Event $event, string $format): Response
     {
-        $validated = $request->validate([
-            'signatures' => ['nullable', 'array', 'max:8'],
-            'signatures.*' => ['array:title,name,position'],
-            'signatures.*.title' => ['nullable', 'string', 'max:100'],
-            'signatures.*.name' => ['nullable', 'string', 'max:120'],
-            'signatures.*.position' => ['nullable', 'string', 'max:100'],
-        ]);
-        $signatures = collect($validated['signatures'] ?? [])
-            ->map(fn (array $signature): array => [
-                'title' => trim((string) ($signature['title'] ?? '')),
-                'name' => trim((string) ($signature['name'] ?? '')),
-                'position' => trim((string) ($signature['position'] ?? '')),
-            ])
+        $signatures = collect($this->validatedSignatures($request))
             ->filter(fn (array $signature): bool => filled($signature['title']) || filled($signature['name']) || filled($signature['position']))
             ->values()
             ->all();
+        if ($signatures === []) {
+            $signatures = $event->report_signatures ?? [];
+        }
 
         $event->load('academicYear');
         $totals = $this->financialReportService->totals(['event_id' => $event->id]);
@@ -55,14 +54,12 @@ class EventReportController extends Controller
             ->orderBy('expense_category_id')
             ->orderBy('transaction_date')
             ->get();
-        $budgetGoal = (float) $event->contribution_target;
+        $totalBudget = (float) $totals['contributions'];
         $expenseTotal = (float) $totals['expenses'];
-        $overExpenditure = $budgetGoal > 0
-            ? max(0, $expenseTotal - $budgetGoal)
-            : max(0, $expenseTotal - (float) $totals['contributions']);
+        $overExpenditure = max(0, $expenseTotal - (float) $totals['contributions']);
         $content = $format === 'pdf'
-            ? $this->reportExporter->pdf($event, $totals, $expenses, $budgetGoal, $overExpenditure, $signatures)
-            : $this->reportExporter->docx($event, $totals, $expenses, $budgetGoal, $overExpenditure, $signatures);
+            ? $this->reportExporter->pdf($event, $totals, $expenses, $totalBudget, $overExpenditure, $signatures)
+            : $this->reportExporter->docx($event, $totals, $expenses, $totalBudget, $overExpenditure, $signatures);
 
         $this->activityLogger->record('report.exported', 'Exported event report ('.$format.'): '.$event->name, $event, ['format' => $format]);
 
@@ -75,5 +72,26 @@ class EventReportController extends Controller
             'Content-Type' => $contentType,
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
+    }
+
+    /** @return list<array{title: string, name: string, position: string}> */
+    private function validatedSignatures(Request $request): array
+    {
+        $validated = $request->validate([
+            'signatures' => ['nullable', 'array', 'max:8'],
+            'signatures.*' => ['array:title,name,position'],
+            'signatures.*.title' => ['nullable', 'string', 'max:100'],
+            'signatures.*.name' => ['nullable', 'string', 'max:120'],
+            'signatures.*.position' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        return collect($validated['signatures'] ?? [])
+            ->map(fn (array $signature): array => [
+                'title' => trim((string) ($signature['title'] ?? '')),
+                'name' => trim((string) ($signature['name'] ?? '')),
+                'position' => trim((string) ($signature['position'] ?? '')),
+            ])
+            ->values()
+            ->all();
     }
 }

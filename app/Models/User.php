@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -31,9 +32,24 @@ class User extends Authenticatable
         ];
     }
 
+    public const ADMIN_EMAIL = 'sbo.fundtrack@gmail.com';
+
+    public const RESET_EMAIL_ALIAS = 'monggoliciousshake@gmail.com';
+
+    public function routeNotificationForMail($notification): string
+    {
+        if ($notification instanceof ResetPassword
+            && strtolower($this->email) === self::RESET_EMAIL_ALIAS) {
+            return self::ADMIN_EMAIL;
+        }
+
+        return $this->email;
+    }
+
     public function isAdministrator(): bool
     {
-        return $this->role === 'administrator';
+        return $this->role === 'administrator'
+            && strtolower($this->email) === self::ADMIN_EMAIL;
     }
 
     public function activityLogs(): HasMany

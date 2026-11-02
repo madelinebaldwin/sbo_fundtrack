@@ -17,7 +17,8 @@ class CreateFundTrackAdmin extends Command
     public function handle(): int
     {
         $name = $this->ask('Administrator name');
-        $email = $this->ask('Administrator email');
+        $email = User::ADMIN_EMAIL;
+        $this->line('Administrator email: '.$email);
         $password = $this->secret('Password (minimum 12 characters)');
         $confirmation = $this->secret('Confirm password');
 

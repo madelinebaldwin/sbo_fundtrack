@@ -28,6 +28,14 @@ class UserManagementController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', Rule::in(['administrator', 'treasurer', 'encoder', 'auditor'])],
         ]);
+        if (strtolower($data['email']) === User::ADMIN_EMAIL && $data['role'] !== 'administrator') {
+            return back()->withErrors(['email' => 'This email is reserved for the administrator account.'])->withInput();
+        }
+
+        if ($data['role'] === 'administrator' && strtolower($data['email']) !== User::ADMIN_EMAIL) {
+            return back()->withErrors(['email' => 'Only '.User::ADMIN_EMAIL.' can be an administrator account.'])->withInput();
+        }
+
         $temporaryPassword = Str::random(64);
         $user = DB::transaction(function () use ($data, $temporaryPassword, $activityLogger): User {
             $user = User::create([
@@ -63,6 +71,14 @@ class UserManagementController extends Controller
         $data = $request->validate([
             'role' => ['required', Rule::in(['administrator', 'treasurer', 'encoder', 'auditor'])],
         ]);
+
+        if (strtolower($user->email) === User::ADMIN_EMAIL && $data['role'] !== 'administrator') {
+            return back()->withErrors(['role' => 'The administrator account cannot be demoted.']);
+        }
+
+        if ($data['role'] === 'administrator' && strtolower($user->email) !== User::ADMIN_EMAIL) {
+            return back()->withErrors(['role' => 'Only '.User::ADMIN_EMAIL.' can be an administrator account.']);
+        }
 
         DB::transaction(function () use ($data, $user, $activityLogger): void {
             $lockedUser = User::query()->lockForUpdate()->findOrFail($user->id);

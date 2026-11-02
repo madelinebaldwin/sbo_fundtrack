@@ -79,6 +79,7 @@ class ExpenseController extends Controller
     {
         $request->merge(['category' => trim((string) $request->input('category'))]);
         $data = $request->validate($this->rules(true));
+        $data = $this->prepareExpenseAmount($data);
         abort_unless(Event::query()->whereKey($data['event_id'])->where('status', 'active')->exists(), 422, 'Select an active event.');
         $receipt = $request->file('receipt')?->store('receipts');
         if ($request->hasFile('receipt') && ! is_string($receipt)) {
@@ -94,11 +95,15 @@ class ExpenseController extends Controller
                 'expense_category_id' => $category->id,
                 'created_by' => $request->user()->id,
                 'receipt_path' => $receipt,
-                'status' => 'pending',
+                'status' => 'approved',
             ]);
-            $activityLogger->record('expense.created', 'Submitted expense: '.$expense->description, $expense, [
+            $activityLogger->record('expense.created', 'Created and automatically approved expense: '.$expense->description, $expense, [
                 'amount' => $expense->amount,
+                'quantity' => $expense->quantity,
+                'unit' => $expense->unit,
+                'unit_price' => $expense->unit_price,
                 'status' => $expense->status,
+                'approval_method' => 'automatic',
             ]);
 
             return $expense;
@@ -108,7 +113,7 @@ class ExpenseController extends Controller
             ? redirect()->route('events.manage.expenses', $managementEvent)
             : redirect()->route('expenses.index');
 
-        return $redirect->with('status', 'Expense submitted for review. It is not included in totals until approved.');
+        return $redirect->with('status', 'Expense approved and added to this event’s financial totals.');
     }
 
     public function show(Expense $expense): RedirectResponse
@@ -118,7 +123,7 @@ class ExpenseController extends Controller
 
     public function edit(Expense $expense): View
     {
-        abort_unless($expense->status === 'pending', 409, 'Only pending expenses can be edited.');
+        abort_unless(in_array($expense->status, ['pending', 'approved'], true), 409, 'Only pending or approved expenses can be edited.');
 
         return view('expenses.edit', [
             'expense' => $expense,
@@ -131,7 +136,7 @@ class ExpenseController extends Controller
     public function editForEvent(Event $event, Expense $expense): View
     {
         abort_unless($event->expenses()->whereKey($expense->id)->exists(), 404);
-        abort_unless($event->status === 'active' && $expense->status === 'pending', 409, 'Only pending expenses for active events can be edited.');
+        abort_unless($event->status === 'active' && in_array($expense->status, ['pending', 'approved'], true), 409, 'Only pending or approved expenses for active events can be edited.');
 
         return view('expenses.edit', [
             'expense' => $expense,
@@ -196,6 +201,7 @@ class ExpenseController extends Controller
             $request->merge(['event_id' => $managementEvent->id]);
         }
         $data = $request->validate($this->rules(false));
+        $data = $this->prepareExpenseAmount($data);
         $newReceipt = $request->file('receipt')?->store('receipts');
         if ($request->hasFile('receipt') && ! is_string($newReceipt)) {
             return back()->withErrors(['receipt' => 'The receipt could not be stored. Please try again.'])->withInput();
@@ -207,7 +213,7 @@ class ExpenseController extends Controller
             $category = $this->resolveCategory($data['category']);
             unset($data['category']);
             $lockedExpense = Expense::query()->lockForUpdate()->findOrFail($expense->id);
-            abort_unless($lockedExpense->status === 'pending', 409, 'Only pending expenses can be edited.');
+            abort_unless(in_array($lockedExpense->status, ['pending', 'approved'], true), 409, 'Only pending or approved expenses can be edited.');
             $lockedExpense->update([
                 ...$data,
                 'expense_category_id' => $category->id,
@@ -242,14 +248,14 @@ class ExpenseController extends Controller
     private function reviewExpense(Request $request, Expense $expense, ActivityLogger $activityLogger, ?Event $managementEvent = null): RedirectResponse
     {
         $data = $request->validate([
-            'status' => ['required', Rule::in(['approved', 'rejected', 'voided'])],
+            'status' => ['required', Rule::in(['approved', 'rejected'])],
             'review_note' => ['nullable', 'string', 'max:1000'],
         ]);
 
         DB::transaction(function () use ($data, $expense, $request, $activityLogger): void {
             $lockedExpense = Expense::query()->lockForUpdate()->findOrFail($expense->id);
-            $allowedTransition = ($lockedExpense->status === 'pending' && in_array($data['status'], ['approved', 'rejected'], true))
-                || ($lockedExpense->status === 'approved' && $data['status'] === 'voided');
+            $allowedTransition = $lockedExpense->status === 'pending'
+                && in_array($data['status'], ['approved', 'rejected'], true);
             abort_unless($allowedTransition, 409, 'This expense status cannot be changed that way.');
             abort_if($data['status'] === 'approved' && $lockedExpense->created_by === $request->user()->id, 403, 'You cannot approve an expense you submitted.');
 
@@ -292,6 +298,40 @@ class ExpenseController extends Controller
         return ExpenseCategory::create(['name' => $name, 'is_active' => true]);
     }
 
+    private function calculateAmount(string|int|float $quantity, string|int|float $unitPrice): string
+    {
+        $amount = round((float) $quantity * (float) $unitPrice, 2, PHP_ROUND_HALF_UP);
+
+        if ($amount <= 0 || $amount > 9999999999.99) {
+            throw ValidationException::withMessages([
+                'unit_price' => 'The calculated amount must be greater than zero and no more than PHP 9,999,999,999.99.',
+            ]);
+        }
+
+        return number_format($amount, 2, '.', '');
+    }
+
+    /** @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function prepareExpenseAmount(array $data): array
+    {
+        if (! isset($data['quantity'])) {
+            $data['quantity'] = '1';
+            $data['unit'] = 'Item';
+        }
+
+        if (isset($data['unit_price']) && $data['unit_price'] !== '') {
+            $data['amount'] = $this->calculateAmount($data['quantity'], $data['unit_price']);
+
+            return $data;
+        }
+
+        $data['unit_price'] = '0.00';
+
+        return $data;
+    }
+
     /** @return array<string, array<int, string|Rule>> */
     private function rules(bool $requireSubmissionKey): array
     {
@@ -302,6 +342,9 @@ class ExpenseController extends Controller
             'event_id' => ['required', 'integer', Rule::exists('events', 'id')->where('status', 'active')],
             'category' => ['required', 'string', 'max:80'],
             'description' => ['required', 'string', 'max:200'],
+            'quantity' => ['required_with:unit,unit_price', 'numeric', 'gt:0', 'decimal:0,3', 'max:999999999.999'],
+            'unit' => ['required_with:quantity,unit_price', 'string', 'max:50'],
+            'unit_price' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2', 'max:9999999999.99'],
             'amount' => ['required', 'numeric', 'gt:0', 'decimal:0,2', 'max:9999999999.99'],
             'transaction_date' => ['required', 'date', 'before_or_equal:today'],
             'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],

@@ -82,15 +82,17 @@ class EventManagementController extends Controller
             ->orderBy('expense_category_id')
             ->orderBy('transaction_date')
             ->get();
-        $budgetGoal = (float) $event->contribution_target;
         $expenseTotal = (float) $totals['expenses'];
 
         return view('events.manage.reports', [
             'event' => $event,
             'totals' => $totals,
             'expenses' => $expenses,
-            'budgetGoal' => $budgetGoal,
-            'overExpenditure' => $budgetGoal > 0 ? max(0, $expenseTotal - $budgetGoal) : max(0, $expenseTotal - (float) $totals['contributions']),
+            'signatures' => $event->report_signatures ?? collect(['Prepared by', 'Attested by', 'Verified as true and correct', 'Recommending approval', 'Approved'])
+                ->map(fn (string $title): array => ['title' => $title, 'name' => '', 'position' => ''])
+                ->all(),
+            'totalBudget' => (float) $totals['contributions'],
+            'overExpenditure' => max(0, $expenseTotal - (float) $totals['contributions']),
         ]);
     }
 

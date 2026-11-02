@@ -18,6 +18,84 @@ document.querySelectorAll('[data-password-toggle]').forEach((toggle) => {
     });
 });
 
+document.querySelectorAll('[data-expense-calculator]').forEach((form) => {
+    const quantityInput = form.querySelector('[name="quantity"]');
+    const unitPriceInput = form.querySelector('[name="unit_price"]');
+    const amountInput = form.querySelector('[name="amount"]');
+
+    if (!quantityInput || !unitPriceInput || !amountInput) {
+        return;
+    }
+
+    const updateAmount = () => {
+        const hasUnitPrice = unitPriceInput.value.trim() !== '';
+
+        amountInput.readOnly = hasUnitPrice;
+        amountInput.classList.toggle('calculated-amount--readonly', hasUnitPrice);
+
+        if (!hasUnitPrice) {
+            return;
+        }
+
+        const quantity = Number.parseFloat(quantityInput.value);
+        const unitPrice = Number.parseFloat(unitPriceInput.value);
+        const amount = quantity * unitPrice;
+
+        amountInput.value = Number.isFinite(amount) && quantity > 0 && unitPrice > 0
+            ? amount.toFixed(2)
+            : '';
+    };
+
+    quantityInput.addEventListener('input', updateAmount);
+    unitPriceInput.addEventListener('input', updateAmount);
+    updateAmount();
+});
+
+const passwordStrength = document.querySelector('[data-password-strength]');
+
+if (passwordStrength) {
+    const passwordInput = document.getElementById('password');
+    const strengthTrack = passwordStrength.querySelector('[role="progressbar"]');
+    const strengthBar = passwordStrength.querySelector('[data-password-strength-bar]');
+    const strengthLabel = passwordStrength.querySelector('[data-password-strength-label]');
+
+    passwordInput?.addEventListener('input', () => {
+        const password = passwordInput.value;
+
+        if (password.length === 0) {
+            strengthTrack.setAttribute('aria-valuenow', '0');
+            strengthTrack.setAttribute('aria-valuetext', 'No password entered');
+            strengthBar.style.width = '0%';
+            passwordStrength.dataset.level = 'empty';
+            strengthLabel.textContent = 'Enter a password to check its strength.';
+
+            return;
+        }
+
+        const score = [
+            password.length >= 8,
+            password.length >= 12,
+            /[a-z]/.test(password),
+            /[A-Z]/.test(password),
+            /\d/.test(password),
+            /[^A-Za-z0-9]/.test(password),
+        ].filter(Boolean).length;
+        const hasStrongMix = password.length >= 12
+            && /[a-z]/.test(password)
+            && /[A-Z]/.test(password)
+            && /\d/.test(password)
+            && /[^A-Za-z0-9]/.test(password);
+        const level = hasStrongMix ? 'strong' : score <= 2 ? 'weak' : 'fair';
+        const label = level[0].toUpperCase() + level.slice(1);
+
+        strengthTrack.setAttribute('aria-valuenow', String(score));
+        strengthTrack.setAttribute('aria-valuetext', `${label} password`);
+        strengthBar.style.width = `${(score / 6) * 100}%`;
+        passwordStrength.dataset.level = level;
+        strengthLabel.textContent = `Password strength: ${label}`;
+    });
+}
+
 const sidebar = document.querySelector('.app-sidebar');
 const openSidebarButton = document.querySelector('[data-sidebar-open]');
 

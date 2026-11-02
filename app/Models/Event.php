@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['academic_year_id', 'created_by', 'name', 'description', 'event_date', 'starts_at', 'ends_at', 'venue', 'status', 'contribution_target'])]
+#[Fillable(['academic_year_id', 'created_by', 'name', 'description', 'event_date', 'starts_at', 'ends_at', 'venue', 'status', 'contribution_target', 'report_signatures'])]
 class Event extends Model
 {
     protected function casts(): array
@@ -17,6 +17,7 @@ class Event extends Model
             'starts_at' => 'date',
             'ends_at' => 'date',
             'contribution_target' => 'decimal:2',
+            'report_signatures' => 'array',
         ];
     }
 

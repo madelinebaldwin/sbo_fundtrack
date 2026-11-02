@@ -17,27 +17,22 @@ class EventReportExporter
      * @param  Collection<int, Expense>  $expenses
      * @param  list<array{title?: ?string, name?: ?string, position?: ?string}>  $signatures
      */
-    public function pdf(Event $event, array $totals, Collection $expenses, float $budgetGoal, float $overExpenditure, array $signatures): string
+    public function pdf(Event $event, array $totals, Collection $expenses, float $totalBudget, float $overExpenditure, array $signatures): string
     {
-        $lines = $this->reportLines($event, $totals, $expenses, $budgetGoal, $overExpenditure, $signatures);
-        $pages = array_chunk($lines, 54);
+        $pages = $this->drawPdfPages($event, $totals, $expenses, $totalBudget, $overExpenditure, $signatures);
         $objects = [
             1 => '<< /Type /Catalog /Pages 2 0 R >>',
-            3 => '<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>',
+            3 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+            4 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
         ];
         $pageReferences = [];
 
-        foreach ($pages as $index => $pageLines) {
-            $pageObject = 4 + $index * 2;
+        foreach ($pages as $index => $pageStream) {
+            $pageObject = 5 + $index * 2;
             $contentObject = $pageObject + 1;
             $pageReferences[] = $pageObject.' 0 R';
-            $text = "BT\n/F1 9 Tf\n48 756 Td\n12 TL\n";
-            foreach ($pageLines as $line) {
-                $text .= '('.$this->pdfEscape($line).") Tj\nT*\n";
-            }
-            $text .= 'ET';
-            $objects[$pageObject] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents '.$contentObject.' 0 R >>';
-            $objects[$contentObject] = '<< /Length '.strlen($text)." >>\nstream\n".$text."\nendstream";
+            $objects[$pageObject] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '.$contentObject.' 0 R >>';
+            $objects[$contentObject] = '<< /Length '.strlen($pageStream)." >>\nstream\n".$pageStream."\nendstream";
         }
 
         $objects[2] = '<< /Type /Pages /Kids ['.implode(' ', $pageReferences).'] /Count '.count($pageReferences).' >>';
@@ -66,7 +61,7 @@ class EventReportExporter
      * @param  Collection<int, Expense>  $expenses
      * @param  list<array{title?: ?string, name?: ?string, position?: ?string}>  $signatures
      */
-    public function docx(Event $event, array $totals, Collection $expenses, float $budgetGoal, float $overExpenditure, array $signatures): string
+    public function docx(Event $event, array $totals, Collection $expenses, float $totalBudget, float $overExpenditure, array $signatures): string
     {
         if (! class_exists(PharData::class)) {
             throw new RuntimeException('The PharData extension is required to create Word reports.');
@@ -82,7 +77,7 @@ class EventReportExporter
             $archive = new PharData($path, 0, null, Phar::ZIP);
             $archive['[Content_Types].xml'] = $this->contentTypesXml();
             $archive['_rels/.rels'] = $this->rootRelationshipsXml();
-            $archive['word/document.xml'] = $this->documentXml($event, $totals, $expenses, $budgetGoal, $overExpenditure, $signatures);
+            $archive['word/document.xml'] = $this->documentXml($event, $totals, $expenses, $totalBudget, $overExpenditure, $signatures);
             $archive['word/_rels/document.xml.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
             unset($archive);
 
@@ -99,93 +94,241 @@ class EventReportExporter
         }
     }
 
-    /** @return list<string> */
-    private function reportLines(Event $event, array $totals, Collection $expenses, float $budgetGoal, float $overExpenditure, array $signatures): array
+    /**
+     * @param  array{contributions: string, expenses: string, balance: string}  $totals
+     * @param  Collection<int, Expense>  $expenses
+     * @param  list<array{title?: ?string, name?: ?string, position?: ?string}>  $signatures
+     * @return list<string>
+     */
+    private function drawPdfPages(Event $event, array $totals, Collection $expenses, float $totalBudget, float $overExpenditure, array $signatures): array
     {
-        $lines = [
-            'FUNDTRACK EVENT FINANCIAL REPORT',
-            str_repeat('=', 70),
-            'Event: '.$event->name,
-            'Academic year: '.$event->academicYear->name,
-            'Generated: '.now()->format('F j, Y'),
-            '',
-            'I. TOTAL BUDGET',
-            'Contribution goal: '.Currency::format($budgetGoal),
-            '',
-            'II. DISBURSEMENT',
-            sprintf('%-5s %-10s %-31s %12s %12s', 'Qty', 'Unit', 'Category / Description', 'Unit Price', 'Amount'),
-            str_repeat('-', 75),
-        ];
+        $pages = [];
+        $stream = '';
+        $pageNumber = 0;
+        $pageHeight = 842.0;
+        $left = 38.0;
+        $right = 557.0;
+        $contentWidth = $right - $left;
+        $y = 0.0;
+        $text = function (string $value, float $x, float $top, float $size = 8, bool $bold = false) use (&$stream, $pageHeight): void {
+            $font = $bold ? 'F2' : 'F1';
+            $stream .= 'BT /'.$font.' '.$size.' Tf 0.12 0.12 0.12 rg '.$x.' '.($pageHeight - $top).' Td ('.$this->pdfEscape($value).") Tj ET\n";
+        };
+        $line = function (float $x1, float $top1, float $x2, float $top2, float $width = 0.6) use (&$stream, $pageHeight): void {
+            $stream .= '0.25 0.25 0.25 RG '.$width.' w '.$x1.' '.($pageHeight - $top1).' m '.$x2.' '.($pageHeight - $top2).' l S'."\n";
+        };
+        $box = function (float $x, float $top, float $width, float $height, bool $shade = false) use (&$stream, $pageHeight): void {
+            $bottom = $pageHeight - $top - $height;
+            $stream .= $shade ? '0.88 0.88 0.88 rg 0.25 0.25 0.25 RG ' : '1 1 1 rg 0.25 0.25 0.25 RG ';
+            $stream .= '0.5 w '.$x.' '.$bottom.' '.$width.' '.$height.' re B'."\n";
+        };
+        $startPage = function (bool $firstPage = false) use (&$pages, &$stream, &$pageNumber, &$y, $text, $line, $left, $right, $contentWidth, $pageHeight, $event): void {
+            if ($pageNumber > 0) {
+                $line($left, $pageHeight - 30, $right, $pageHeight - 30, 0.5);
+                $text('Page '.$pageNumber, $right - 36, $pageHeight - 15, 7);
+                $pages[] = $stream;
+            }
+            $pageNumber++;
+            $stream = '';
+            $text('ISABELA STATE UNIVERSITY', $left, 28, 10, true);
+            $text('CAUAYAN CAMPUS', $left, 41, 8, true);
+            $text('BAGONG PILIPINAS', $right - 88, 34, 7.5, true);
+            $line($left, 50, $right, 50, 1.2);
+            $y = 66;
+            if ($firstPage) {
+                $reportTitle = 'FINANCIAL REPORT';
+                $text($reportTitle, $left + (($contentWidth - (mb_strwidth($reportTitle) * 7.5)) / 2), $y, 15, true);
+                $y += 19;
+                $eventName = mb_strimwidth($event->name, 0, 68, '...');
+                $eventNameWidth = mb_strwidth($eventName) * 5.5;
+                $text($eventName, $left + (($contentWidth - $eventNameWidth) / 2), $y, 11, true);
+                $y += 14;
+                $reportDate = 'Academic year: '.$event->academicYear->name.' | Generated: '.now()->format('F j, Y');
+                $reportDateWidth = mb_strwidth($reportDate) * 3.75;
+                $text($reportDate, $left + (($contentWidth - $reportDateWidth) / 2), $y, 7.5);
+                $y += 18;
+            } else {
+                $text('FINANCIAL REPORT — '.mb_strimwidth($event->name, 0, 56, '...'), $left, $y, 9, true);
+                $y += 17;
+            }
+        };
+        $ensureSpace = function (float $height) use (&$y, $startPage, $pageHeight): void {
+            if ($y + $height > $pageHeight - 43) {
+                $startPage();
+            }
+        };
+        $heading = function (string $label) use (&$y, $text, $left, $ensureSpace): void {
+            $ensureSpace(24);
+            $text($label, $left, $y, 9.5, true);
+            $y += 7;
+        };
+        $row = function (array $cells, array $widths, float $height, bool $shade = false, bool $bold = false) use (&$y, $left, $box, $text): void {
+            $x = $left;
+            foreach ($widths as $index => $width) {
+                $box($x, $y, $width, $height, $shade);
+                $cell = (string) ($cells[$index] ?? '');
+                $limit = max(1, (int) floor(($width - 8) / 4));
+                foreach (array_slice(explode("\n", wordwrap($cell, $limit, "\n", true)), 0, max(1, (int) floor(($height - 5) / 9))) as $lineIndex => $cellLine) {
+                    $text($cellLine, $x + 4, $y + 10 + ($lineIndex * 9), 7, $bold);
+                }
+                $x += $width;
+            }
+            $y += $height;
+        };
 
-        foreach ($expenses as $expense) {
-            $lines[] = sprintf(
-                '%-5s %-10s %-31s %12s %12s',
-                '1',
-                'Item',
-                $expense->category->name.' / '.$expense->description,
-                number_format((float) $expense->amount, 2),
-                number_format((float) $expense->amount, 2),
-            );
+        $startPage(true);
+        $heading('I. TOTAL BUDGET');
+        $row(['TOTAL BUDGET', Currency::format($totalBudget)], [$contentWidth * 0.62, $contentWidth * 0.38], 20, false, true);
+        $y += 10;
+
+        $heading('II. DISBURSEMENT');
+        $columns = [48.0, 52.0, 235.0, 92.0, 92.0];
+        $row(['Quantity', 'Unit', 'Article and Description', 'Unit Price', 'Amount'], $columns, 21, true, true);
+        foreach ($expenses->groupBy(fn (Expense $expense): string => $expense->category->name)->sortKeys(SORT_NATURAL | SORT_FLAG_CASE) as $categoryName => $categoryExpenses) {
+            $ensureSpace(18);
+            $box($left, $y, $contentWidth, 17, true);
+            $categoryLabel = mb_strtoupper((string) $categoryName);
+            $categoryLabelWidth = mb_strwidth($categoryLabel) * 3.75;
+            $text($categoryLabel, $left + (($contentWidth - $categoryLabelWidth) / 2), $y + 11, 7.5, true);
+            $y += 17;
+            foreach ($categoryExpenses as $expense) {
+                $wrappedDescription = wordwrap($expense->description, 42, "\n", true);
+                $height = max(20.0, count(explode("\n", $wrappedDescription)) * 9 + 6);
+                $ensureSpace($height);
+                $row([
+                    $expense->formattedQuantity(),
+                    $expense->unit,
+                    $wrappedDescription,
+                    (float) $expense->unit_price > 0 ? Currency::format((float) $expense->unit_price) : '—',
+                    Currency::format((float) $expense->amount),
+                ], $columns, $height);
+            }
+        }
+        if ($expenses->isEmpty()) {
+            $row(['', '', 'No approved disbursements for this event.', '', ''], $columns, 21);
+        }
+        $row(['', '', '', 'GRAND TOTAL', Currency::format((float) $totals['expenses'])], $columns, 21, false, true);
+        $y += 10;
+
+        $heading('III. OVERALL EXPENSES');
+        $summaryColumns = [$contentWidth * 0.62, $contentWidth * 0.38];
+        foreach ([
+            ['OVERALL FUNDS', Currency::format((float) $totals['contributions'])],
+            ['TOTAL EXPENSES', Currency::format((float) $totals['expenses'])],
+            ['REMAINING BALANCE', Currency::format((float) $totals['balance'])],
+            ['OVEREXPENDITURE / DEFICIT', Currency::format($overExpenditure)],
+        ] as $summaryRow) {
+            $row($summaryRow, $summaryColumns, 19, false, true);
+        }
+        $y += 10;
+
+        $heading('SIGNATURES');
+        foreach (array_chunk($this->reportSignatures($signatures), 2) as $signaturePair) {
+            $ensureSpace(73);
+            foreach ($signaturePair as $index => $signature) {
+                $x = $left + ($index * ($contentWidth / 2)) + 8;
+                $width = ($contentWidth / 2) - 24;
+                $text($signature['title'], $x, $y + 11, 7.5, true);
+                $line($x, $y + 39, $x + $width, $y + 39, 0.7);
+                $text($signature['name'], $x, $y + 50, 7.5, true);
+                $text($signature['position'], $x, $y + 61, 7);
+            }
+            $y += 73;
         }
 
-        $lines[] = str_repeat('-', 75);
-        $lines[] = 'GRAND TOTAL: '.Currency::format((float) $totals['expenses']);
-        $lines[] = '';
-        $lines[] = 'III. OVERALL EXPENSES';
-        $lines[] = 'Total collections: '.Currency::format((float) $totals['contributions']);
-        $lines[] = 'Total expenses: '.Currency::format((float) $totals['expenses']);
-        $lines[] = 'Remaining balance: '.Currency::format((float) $totals['balance']);
-        $lines[] = 'Over expenditure / deficit: '.Currency::format($overExpenditure);
-        $lines[] = '';
-        $lines[] = 'SIGNATURES';
+        $line($left, $pageHeight - 30, $right, $pageHeight - 30, 0.5);
+        $text('Page '.$pageNumber, $right - 36, $pageHeight - 15, 7);
+        $pages[] = $stream;
 
-        foreach ($signatures as $signature) {
-            $lines[] = trim(implode(' | ', array_filter([
-                $signature['title'] ?? '',
-                $signature['name'] ?? '',
-                $signature['position'] ?? '',
-            ], fn (?string $value): bool => filled($value))));
-        }
-
-        return $lines;
+        return $pages;
     }
 
-    private function documentXml(Event $event, array $totals, Collection $expenses, float $budgetGoal, float $overExpenditure, array $signatures): string
+    /** @param list<array{title?: ?string, name?: ?string, position?: ?string}> $signatures
+     * @return list<array{title: string, name: string, position: string}>
+     */
+    private function reportSignatures(array $signatures): array
+    {
+        if ($signatures !== []) {
+            return array_map(fn (array $signature): array => [
+                'title' => (string) ($signature['title'] ?? ''),
+                'name' => (string) ($signature['name'] ?? ''),
+                'position' => (string) ($signature['position'] ?? ''),
+            ], $signatures);
+        }
+
+        return array_map(fn (string $title): array => [
+            'title' => $title,
+            'name' => '',
+            'position' => '',
+        ], [
+            'Prepared by',
+            'Attested by',
+            'Verified as true and correct',
+            'Recommending approval',
+            'Approved',
+        ]);
+    }
+
+    /** @param array{title?: ?string, name?: ?string, position?: ?string} $signature */
+    private function signatureCell(array $signature): string
+    {
+        return implode("\n", [
+            (string) ($signature['title'] ?? ''),
+            '',
+            '______________________________',
+            (string) ($signature['name'] ?? ''),
+            (string) ($signature['position'] ?? ''),
+        ]);
+    }
+
+    private function documentXml(Event $event, array $totals, Collection $expenses, float $totalBudget, float $overExpenditure, array $signatures): string
     {
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
         $xml .= '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>';
-        $xml .= $this->wordParagraph('FundTrack Event Financial Report', true, 30);
-        $xml .= $this->wordParagraph('Event: '.$event->name, true, 24);
-        $xml .= $this->wordParagraph('Academic year: '.$event->academicYear->name.' · Generated: '.now()->format('F j, Y'));
+        $xml .= $this->wordParagraph('ISABELA STATE UNIVERSITY', true, 24);
+        $xml .= $this->wordParagraph('CAUAYAN CAMPUS | STUDENT BODY ORGANIZATION', true, 18);
+        $xml .= $this->wordParagraph('FINANCIAL REPORT', true, 30);
+        $xml .= $this->wordParagraph($event->name, true, 24);
+        $xml .= $this->wordParagraph('Academic year: '.$event->academicYear->name.' | Generated: '.now()->format('F j, Y'));
         $xml .= $this->wordParagraph('I. TOTAL BUDGET', true, 22);
         $xml .= $this->wordTable([
-            ['Description', 'Amount'],
-            ['Contribution goal', Currency::format($budgetGoal)],
-            ['Collections received', Currency::format((float) $totals['contributions'])],
-        ]);
+            ['TOTAL BUDGET', Currency::format($totalBudget)],
+        ], [6500, 2860]);
         $xml .= $this->wordParagraph('II. DISBURSEMENT', true, 22);
         $expenseRows = [['Quantity', 'Unit', 'Category and description', 'Unit price', 'Amount']];
-        foreach ($expenses as $expense) {
-            $expenseRows[] = ['1', 'Item', $expense->category->name.' — '.$expense->description, Currency::format((float) $expense->amount), Currency::format((float) $expense->amount)];
+        foreach ($expenses->groupBy(fn (Expense $expense): string => $expense->category->name)->sortKeys(SORT_NATURAL | SORT_FLAG_CASE) as $categoryName => $categoryExpenses) {
+            $expenseRows[] = ['__category', strtoupper($categoryName)];
+            foreach ($categoryExpenses as $expense) {
+                $expenseRows[] = [
+                    $expense->formattedQuantity(),
+                    $expense->unit,
+                    $expense->description,
+                    (float) $expense->unit_price > 0 ? Currency::format((float) $expense->unit_price) : '—',
+                    Currency::format((float) $expense->amount),
+                ];
+            }
+        }
+        if ($expenses->isEmpty()) {
+            $expenseRows[] = ['', '', 'No approved disbursements for this event.', '', ''];
         }
         $expenseRows[] = ['', '', 'GRAND TOTAL', '', Currency::format((float) $totals['expenses'])];
-        $xml .= $this->wordTable($expenseRows);
+        $xml .= $this->wordTable($expenseRows, [1000, 1000, 3360, 2000, 2000]);
         $xml .= $this->wordParagraph('III. OVERALL EXPENSES', true, 22);
         $xml .= $this->wordTable([
-            ['Description', 'Amount'],
-            ['Total expenses', Currency::format((float) $totals['expenses'])],
-            ['Remaining balance', Currency::format((float) $totals['balance'])],
-            ['Over expenditure / deficit', Currency::format($overExpenditure)],
-        ]);
+            ['OVERALL FUNDS', Currency::format((float) $totals['contributions'])],
+            ['TOTAL EXPENSES', Currency::format((float) $totals['expenses'])],
+            ['REMAINING BALANCE', Currency::format((float) $totals['balance'])],
+            ['OVEREXPENDITURE / DEFICIT', Currency::format($overExpenditure)],
+        ], [6500, 2860]);
         $xml .= $this->wordParagraph('Signatures', true, 22);
-        $signatureRows = [['Title', 'Name', 'Position']];
-        foreach ($signatures as $signature) {
-            $signatureRows[] = [$signature['title'] ?? '', $signature['name'] ?? '', $signature['position'] ?? ''];
+        $signatureRows = [];
+        foreach (array_chunk($this->reportSignatures($signatures), 2) as $signaturePair) {
+            $signatureRows[] = [
+                $this->signatureCell($signaturePair[0]),
+                $this->signatureCell($signaturePair[1] ?? []),
+            ];
         }
-        if (count($signatureRows) === 1) {
-            $signatureRows[] = ['', '', ''];
-        }
-        $xml .= $this->wordTable($signatureRows);
+        $xml .= $this->wordTable($signatureRows, [4680, 4680], false);
         $xml .= '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720"/></w:sectPr></w:body></w:document>';
 
         return $xml;
@@ -199,8 +342,11 @@ class EventReportExporter
         return '<w:p><w:r><w:rPr>'.$runProperties.'</w:rPr><w:t xml:space="preserve">'.$escaped.'</w:t></w:r></w:p>';
     }
 
-    /** @param list<list<string>> $rows */
-    private function wordTable(array $rows): string
+    /**
+     * @param  list<list<string>>  $rows
+     * @param  list<int>|null  $columnWidths
+     */
+    private function wordTable(array $rows, ?array $columnWidths = null, bool $styleFirstRow = true): string
     {
         $xml = '<w:tbl><w:tblPr><w:tblBorders>';
         foreach (['top', 'left', 'bottom', 'right', 'insideH', 'insideV'] as $edge) {
@@ -208,15 +354,30 @@ class EventReportExporter
         }
         $xml .= '</w:tblBorders></w:tblPr><w:tblGrid>';
         $columnCount = max(1, count($rows[0] ?? []));
-        for ($column = 0; $column < $columnCount; $column++) {
-            $xml .= '<w:gridCol w:w="'.(9360 / $columnCount).'"/>';
+        $widths = $columnWidths ?? array_fill(0, $columnCount, intdiv(9360, $columnCount));
+        $widths[$columnCount - 1] += 9360 - array_sum($widths);
+        foreach ($widths as $width) {
+            $xml .= '<w:gridCol w:w="'.$width.'"/>';
         }
         $xml .= '</w:tblGrid>';
         foreach ($rows as $rowIndex => $row) {
+            if (($row[0] ?? null) === '__category') {
+                $category = htmlspecialchars($row[1] ?? '', ENT_XML1 | ENT_COMPAT, 'UTF-8');
+                $xml .= '<w:tr><w:tc><w:tcPr><w:tcW w:w="9360" w:type="dxa"/><w:gridSpan w:val="'.$columnCount.'"/><w:shd w:fill="D9D9D9"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">'.$category.'</w:t></w:r></w:p></w:tc></w:tr>';
+
+                continue;
+            }
+
             $xml .= '<w:tr>';
-            foreach (array_pad($row, $columnCount, '') as $cell) {
-                $escaped = htmlspecialchars($cell, ENT_XML1 | ENT_COMPAT, 'UTF-8');
-                $xml .= '<w:tc><w:tcPr><w:tcW w:w="'.(9360 / $columnCount).'" w:type="dxa"/></w:tcPr><w:p><w:r>'.($rowIndex === 0 ? '<w:rPr><w:b/></w:rPr>' : '').'<w:t xml:space="preserve">'.$escaped.'</w:t></w:r></w:p></w:tc>';
+            foreach (array_pad($row, $columnCount, '') as $column => $cell) {
+                $lineContent = implode('<w:br/>', array_map(
+                    fn (string $line): string => '<w:t xml:space="preserve">'.htmlspecialchars($line, ENT_XML1 | ENT_COMPAT, 'UTF-8').'</w:t>',
+                    explode("\n", $cell),
+                ));
+                $isHeader = $styleFirstRow && $rowIndex === 0;
+                $shading = $isHeader ? '<w:shd w:fill="E5E5E5"/>' : '';
+                $runProperties = $isHeader ? '<w:rPr><w:b/></w:rPr>' : '';
+                $xml .= '<w:tc><w:tcPr><w:tcW w:w="'.$widths[$column].'" w:type="dxa"/>'.$shading.'</w:tcPr><w:p><w:r>'.$runProperties.$lineContent.'</w:r></w:p></w:tc>';
             }
             $xml .= '</w:tr>';
         }
