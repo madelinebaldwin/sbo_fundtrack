@@ -51,6 +51,92 @@ document.querySelectorAll('[data-expense-calculator]').forEach((form) => {
     updateAmount();
 });
 
+const eventStartDate = document.querySelector('[data-event-start-date]');
+const eventEndDate = document.querySelector('[data-event-end-date]');
+
+if (eventStartDate && eventEndDate) {
+    const updateEventEndDateMinimum = () => {
+        const earliestEndDate = eventStartDate.value && eventStartDate.value > eventStartDate.min
+            ? eventStartDate.value
+            : eventStartDate.min;
+
+        eventEndDate.min = earliestEndDate;
+    };
+
+    eventStartDate.addEventListener('change', updateEventEndDateMinimum);
+    updateEventEndDateMinimum();
+}
+
+const academicYearPicker = document.querySelector('[data-academic-year-picker]');
+
+if (academicYearPicker) {
+    const academicYearInput = academicYearPicker.querySelector('#event-academic-year');
+    const calendar = academicYearPicker.querySelector('[data-year-picker-calendar]');
+    const trigger = academicYearPicker.querySelector('[data-year-picker-trigger]');
+    const rangeLabel = academicYearPicker.querySelector('[data-year-picker-range]');
+    const options = academicYearPicker.querySelector('[data-year-picker-options]');
+    const previousButton = academicYearPicker.querySelector('[data-year-picker-previous]');
+    const nextButton = academicYearPicker.querySelector('[data-year-picker-next]');
+    const academicYearMatch = academicYearInput?.value.match(/^(\d{4})-(\d{4})$/);
+    let decadeStart = academicYearMatch ? Math.floor(Number(academicYearMatch[1]) / 10) * 10 : Math.floor(new Date().getFullYear() / 10) * 10;
+
+    const renderAcademicYearOptions = () => {
+        const lastYearInRange = Math.min(decadeStart + 9, 2200);
+        rangeLabel.textContent = decadeStart === lastYearInRange
+            ? String(decadeStart)
+            : `${decadeStart}–${lastYearInRange}`;
+        options.replaceChildren();
+
+        for (let year = decadeStart; year <= lastYearInRange; year += 1) {
+            const option = document.createElement('button');
+            option.className = 'event-create-year-option';
+            option.type = 'button';
+            option.dataset.year = String(year);
+            option.textContent = `${year}-${year + 1}`;
+            option.addEventListener('click', () => {
+                academicYearInput.value = option.textContent;
+                calendar.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+                trigger.focus();
+            });
+            options.append(option);
+        }
+
+        previousButton.disabled = decadeStart <= 2000;
+        nextButton.disabled = decadeStart >= 2200;
+    };
+
+    const setDecade = (offset) => {
+        decadeStart = Math.max(2000, Math.min(2200, decadeStart + offset));
+        decadeStart = Math.floor(decadeStart / 10) * 10;
+        renderAcademicYearOptions();
+    };
+
+    trigger.addEventListener('click', () => {
+        calendar.hidden = !calendar.hidden;
+        trigger.setAttribute('aria-expanded', String(!calendar.hidden));
+        if (!calendar.hidden) {
+            renderAcademicYearOptions();
+        }
+    });
+    previousButton.addEventListener('click', () => setDecade(-10));
+    nextButton.addEventListener('click', () => setDecade(10));
+
+    document.addEventListener('click', (event) => {
+        if (!academicYearPicker.contains(event.target)) {
+            calendar.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !calendar.hidden) {
+            calendar.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.focus();
+        }
+    });
+}
+
 const passwordStrength = document.querySelector('[data-password-strength]');
 
 if (passwordStrength) {

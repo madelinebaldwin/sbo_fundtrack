@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use App\Services\ActivityLogger;
 use App\Services\FinancialReportService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -12,14 +13,19 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
-    public function index(Request $request, FinancialReportService $financialReports): View
+    public function index(Request $request, FinancialReportService $financialReports): View|RedirectResponse
     {
         $filters = $this->validatedFilters($request);
         $transactions = $financialReports->transactionsQuery($filters)
             ->orderByDesc('transaction_date')
             ->orderByDesc('transaction_id')
-            ->paginate(20)
+            ->orderByDesc('source')
+            ->paginate(5)
             ->withQueryString();
+
+        if ($redirect = $this->redirectIfPaginationPageIsUnavailable($transactions)) {
+            return $redirect;
+        }
 
         return view('reports.index', [
             'transactions' => $transactions,

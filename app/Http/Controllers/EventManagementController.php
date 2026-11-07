@@ -40,16 +40,23 @@ class EventManagementController extends Controller
         ]);
     }
 
-    public function collections(Event $event): View
+    public function collections(Event $event): View|RedirectResponse
     {
         $collections = $event->collections()
             ->withSum(['contributions as collected_amount' => fn (Builder $query) => $query->where('status', 'posted')], 'amount')
             ->withCount(['contributions as posted_contributions_count' => fn (Builder $query) => $query->where('status', 'posted')])
             ->withCount('contributions')
             ->orderBy('year_section')
-            ->get();
-        $expectedTotal = $collections->sum(fn (Collection $collection): float => $collection->student_count * (float) $collection->amount_per_student);
-        $collectedTotal = $collections->sum(fn (Collection $collection): float => (float) $collection->collected_amount);
+            ->orderBy('id')
+            ->paginate(10)
+            ->withQueryString();
+        if ($redirect = $this->redirectIfPaginationPageIsUnavailable($collections)) {
+            return $redirect;
+        }
+        $expectedTotal = (float) $event->collections()
+            ->selectRaw('COALESCE(SUM(student_count * amount_per_student), 0) as expected_total')
+            ->value('expected_total');
+        $collectedTotal = (float) $this->financialReportService->totals(['event_id' => $event->id])['contributions'];
         $goal = (float) $event->contribution_target;
 
         return view('events.manage.collections', [
@@ -62,12 +69,18 @@ class EventManagementController extends Controller
         ]);
     }
 
-    public function expenses(Event $event): View
+    public function expenses(Event $event): View|RedirectResponse
     {
         $expenses = $event->expenses()
             ->with(['category:id,name', 'creator:id,name', 'reviewer:id,name'])
             ->latest('transaction_date')
-            ->paginate(15);
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        if ($redirect = $this->redirectIfPaginationPageIsUnavailable($expenses)) {
+            return $redirect;
+        }
 
         return view('events.manage.expenses', compact('event', 'expenses'));
     }
@@ -121,7 +134,7 @@ class EventManagementController extends Controller
         return view('events.manage.analytics', compact('event', 'totals', 'monthlyTotals', 'expenseCategories'));
     }
 
-    public function history(Event $event): View
+    public function history(Event $event): View|RedirectResponse
     {
         $collectionIds = $event->collections()->select('id');
         $contributionIds = Contribution::query()->whereIn('collection_id', $collectionIds)->select('id');
@@ -140,7 +153,13 @@ class EventManagementController extends Controller
                 });
             })
             ->latest()
-            ->paginate(25);
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        if ($redirect = $this->redirectIfPaginationPageIsUnavailable($activities)) {
+            return $redirect;
+        }
 
         return view('events.manage.history', compact('event', 'activities'));
     }

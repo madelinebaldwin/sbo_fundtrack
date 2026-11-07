@@ -4,8 +4,8 @@
     <form class="filter-bar" method="GET" action="{{ route('analytics.index') }}">
         <div class="filter-fields">
             <label class="filter-field">Event<select name="event_id"><option value="">All events</option>@foreach ($events as $event)<option value="{{ $event->id }}" @selected((string) ($filters['event_id'] ?? '') === (string) $event->id)>{{ $event->name }}</option>@endforeach</select></label>
-            <label class="filter-field">From<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
-            <label class="filter-field">To<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
+            <label class="filter-field">From<input class="date-input" type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label>
+            <label class="filter-field">To<input class="date-input" type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label>
             <div class="filter-actions"><button class="button button--primary" type="submit">Filter</button><a class="button button--outline" href="{{ route('analytics.index') }}">Clear</a></div>
         </div>
     </form>

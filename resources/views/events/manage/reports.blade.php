@@ -8,10 +8,16 @@
         <header class="event-report-masthead">
             <div class="event-report-institution">
                 <strong>ISABELA STATE UNIVERSITY</strong>
-                <span>CAUAYAN CAMPUS</span>
-                <small>San Fermin, Cauayan City, Isabela</small>
+                <small>University for People, Nature, Entrepreneurship and Innovation</small>
             </div>
-            <span class="event-report-republic">BAGONG PILIPINAS</span>
+            <div class="event-report-logos" aria-label="University and Bagong Pilipinas logos">
+                <img src="{{ asset('images/isu-new-seal.png') }}" alt="Isabela State University seal">
+                <img src="{{ asset('images/bagong-pilipinas-logo.webp') }}" alt="Bagong Pilipinas logo">
+            </div>
+            <div class="event-report-campus">
+                <strong>CAUAYAN CAMPUS</strong>
+                <small>San Fermin, Cauayan City, Isabela, Philippines 3305</small>
+            </div>
         </header>
         <div class="event-report-title">
             <h2>FINANCIAL REPORT</h2>
@@ -26,7 +32,7 @@
 
         <section class="event-report-section">
             <h3>II. DISBURSEMENT</h3>
-            <div class="table-wrap"><table class="data-table event-report-table"><thead><tr><th>Quantity</th><th>Unit</th><th>Article and Description</th><th class="numeric">Unit Price</th><th class="numeric">Amount</th></tr></thead><tbody>
+            <div class="table-wrap"><table class="data-table event-report-table"><colgroup><col style="width: 9%"><col style="width: 10%"><col style="width: 45%"><col style="width: 18%"><col style="width: 18%"></colgroup><thead><tr><th>Quantity</th><th>Unit</th><th>Article and Description</th><th class="numeric">Unit Price</th><th class="numeric">Amount</th></tr></thead><tbody>
                 @forelse ($groupedExpenses as $categoryName => $categoryExpenses)
                     <tr class="event-report-category"><th colspan="5">{{ strtoupper($categoryName) }}</th></tr>
                     @foreach ($categoryExpenses as $expense)
@@ -41,7 +47,7 @@
 
         <section class="event-report-section">
             <h3>III. OVERALL EXPENSES</h3>
-            <div class="table-wrap"><table class="data-table event-report-summary-table"><tbody>
+            <div class="table-wrap"><table class="data-table event-report-summary-table event-report-overall-table"><tbody>
                 <tr><th>OVERALL FUNDS</th><td class="numeric">{{ \App\Support\Currency::format((float) $totals['contributions']) }}</td></tr>
                 <tr><th>TOTAL EXPENSES</th><td class="numeric">{{ \App\Support\Currency::format((float) $totals['expenses']) }}</td></tr>
                 <tr><th>REMAINING BALANCE</th><td class="numeric">{{ \App\Support\Currency::format((float) $totals['balance']) }}</td></tr>

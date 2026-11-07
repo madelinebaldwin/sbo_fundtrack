@@ -14,7 +14,7 @@ use Illuminate\View\View;
 
 class CollectionController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $request->validate([
             'search' => ['nullable', 'string', 'max:80'],
@@ -31,8 +31,13 @@ class CollectionController extends Controller
             ->when($request->filled('academic_year_id'), fn ($query) => $query->whereHas('event', fn ($eventQuery) => $eventQuery->where('academic_year_id', $request->integer('academic_year_id'))))
             ->when($request->filled('event_id'), fn ($query) => $query->where('event_id', $request->integer('event_id')))
             ->latest()
-            ->paginate(15)
+            ->orderByDesc('id')
+            ->paginate(10)
             ->withQueryString();
+
+        if ($redirect = $this->redirectIfPaginationPageIsUnavailable($collections)) {
+            return $redirect;
+        }
 
         return view('collections.index', [
             'collections' => $collections,
@@ -93,7 +98,7 @@ class CollectionController extends Controller
             abort_unless($event->status === 'active', 422, 'Select an active event.');
 
             $duplicateClassExists = $event->collections()
-                ->whereRaw('LOWER(year_section) = ?', [strtolower($data['year_section'])])
+                ->whereRaw('LOWER(TRIM(year_section)) = ?', [strtolower($data['year_section'])])
                 ->exists();
 
             if ($duplicateClassExists) {

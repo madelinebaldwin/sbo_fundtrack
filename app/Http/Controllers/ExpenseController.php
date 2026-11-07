@@ -16,7 +16,7 @@ use Illuminate\View\View;
 
 class ExpenseController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $request->validate([
             'search' => ['nullable', 'string', 'max:200'],
@@ -33,8 +33,13 @@ class ExpenseController extends Controller
             })
             ->when($request->filled('event_id'), fn ($query) => $query->where('event_id', $request->integer('event_id')))
             ->latest('transaction_date')
-            ->paginate(15)
+            ->orderByDesc('id')
+            ->paginate(10)
             ->withQueryString();
+
+        if ($redirect = $this->redirectIfPaginationPageIsUnavailable($expenses)) {
+            return $redirect;
+        }
 
         return view('expenses.index', [
             'expenses' => $expenses,

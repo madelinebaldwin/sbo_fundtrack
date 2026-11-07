@@ -169,13 +169,37 @@ class EventManagementTest extends TestCase
         $categoryB = ExpenseCategory::create(['name' => 'Confidential items', 'is_active' => true]);
         $this->createExpense($eventA, $user, $categoryA, 'Alpha report expense', '40.00');
         $this->createExpense($eventB, $user, $categoryB, 'Beta report expense', '200.00');
+        for ($index = 1; $index <= 45; $index++) {
+            $this->createExpense($eventA, $user, $categoryA, 'Repeated travel cost '.$index, '12.50');
+        }
+        $longDescription = str_repeat('Detailed materials list ', 25).'LONG-DESCRIPTION-END';
+        $this->createExpense($eventA, $user, $categoryA, $longDescription, '325.00');
+
+        $this->get(route('events.manage.reports', $eventA))
+            ->assertOk()
+            ->assertSee('Alpha report expense')
+            ->assertSee('LONG-DESCRIPTION-END')
+            ->assertSee('III. OVERALL EXPENSES');
 
         $pdfResponse = $this->post(route('events.manage.reports.pdf', $eventA), [
             'signatures' => [['title' => 'Treasurer', 'name' => 'A Person', 'position' => 'Officer']],
         ])->assertOk()->assertHeader('content-type', 'application/pdf');
-        $this->assertStringStartsWith('%PDF-1.4', $pdfResponse->getContent());
-        $this->assertStringContainsString('Export Event Alpha', $pdfResponse->getContent());
-        $this->assertStringNotContainsString('Export Event Beta Secret', $pdfResponse->getContent());
+        $pdf = $pdfResponse->getContent();
+        $this->assertStringStartsWith('%PDF-1.4', $pdf);
+        $this->assertStringContainsString('Export Event Alpha', $pdf);
+        $this->assertStringContainsString('LONG-DESCRIPTION-END', $pdf);
+        $this->assertStringNotContainsString('Export Event Beta Secret', $pdf);
+        $this->assertGreaterThanOrEqual(2, preg_match_all('/\/Type \/Page\b/', $pdf));
+        $this->assertGreaterThanOrEqual(2, substr_count($pdf, 'II. DISBURSEMENT'));
+
+        $shortPdfResponse = $this->post(route('events.manage.reports.pdf', $eventB), [
+            'signatures' => [['title' => 'Treasurer', 'name' => 'A Person', 'position' => 'Officer']],
+        ])->assertOk()->assertHeader('content-type', 'application/pdf');
+        $shortPdf = $shortPdfResponse->getContent();
+        $this->assertStringContainsString('Export Event Beta Secret', $shortPdf);
+        $this->assertStringContainsString('Beta report expense', $shortPdf);
+        $this->assertSame(1, preg_match_all('/\/Type \/Page\b/', $shortPdf));
+        $this->assertSame(1, substr_count($shortPdf, 'II. DISBURSEMENT'));
 
         $docxResponse = $this->post(route('events.manage.reports.docx', $eventA), [
             'signatures' => [['title' => 'Treasurer', 'name' => 'A Person', 'position' => 'Officer']],

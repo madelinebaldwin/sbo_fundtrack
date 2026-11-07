@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class FinancialReportService
 {
-    /** @param array{event_id?: int|string|null, from?: string|null, to?: string|null} $filters */
+    /** @param array{event_id?: int|string|null, academic_year_id?: int|string|null, from?: string|null, to?: string|null} $filters */
     public function transactionsQuery(array $filters = []): Builder
     {
         $contributions = DB::table('contributions as contribution')
@@ -56,6 +56,10 @@ class FinancialReportService
             $query->where('event_id', (int) $filters['event_id']);
         }
 
+        if (! empty($filters['academic_year_id'])) {
+            $query->whereIn('event_id', DB::table('events')->select('id')->where('academic_year_id', (int) $filters['academic_year_id']));
+        }
+
         if (! empty($filters['from'])) {
             $query->whereDate('transaction_date', '>=', $filters['from']);
         }
@@ -67,7 +71,7 @@ class FinancialReportService
         return $query;
     }
 
-    /** @param array{event_id?: int|string|null, from?: string|null, to?: string|null} $filters
+    /** @param array{event_id?: int|string|null, academic_year_id?: int|string|null, from?: string|null, to?: string|null} $filters
      * @return array{contributions: string, expenses: string, balance: string}
      */
     public function totals(array $filters = []): array
@@ -86,7 +90,7 @@ class FinancialReportService
         ];
     }
 
-    /** @param array{event_id?: int|string|null, from?: string|null, to?: string|null} $filters
+    /** @param array{event_id?: int|string|null, academic_year_id?: int|string|null, from?: string|null, to?: string|null} $filters
      * @return array{labels: list<string>, contributions: list<float>, expenses: list<float>}
      */
     public function monthlyTotals(array $filters = [], ?AcademicYear $academicYear = null): array
@@ -140,7 +144,7 @@ class FinancialReportService
         ];
     }
 
-    /** @param array{event_id?: int|string|null, from?: string|null, to?: string|null} $filters
+    /** @param array{event_id?: int|string|null, academic_year_id?: int|string|null, from?: string|null, to?: string|null} $filters
      * @return SupportCollection<int, object{event_name: string, amount: string}>
      */
     public function expenseDistribution(array $filters = []): SupportCollection
@@ -155,6 +159,9 @@ class FinancialReportService
 
         if (! empty($filters['event_id'])) {
             $query->where('event.id', (int) $filters['event_id']);
+        }
+        if (! empty($filters['academic_year_id'])) {
+            $query->where('event.academic_year_id', (int) $filters['academic_year_id']);
         }
         if (! empty($filters['from'])) {
             $query->whereDate('expense.transaction_date', '>=', $filters['from']);

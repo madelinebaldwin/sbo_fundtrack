@@ -29,4 +29,5 @@
             @endforelse
         </tbody>
     </table></div>
+    <div class="pagination">{{ $collections->links() }}</div>
 @endsection

@@ -16,9 +16,19 @@ use Throwable;
 
 class UserManagementController extends Controller
 {
-    public function index(): View
+    public function index(): View|RedirectResponse
     {
-        return view('users.index', ['users' => User::query()->orderBy('name')->paginate(20)]);
+        $users = User::query()
+            ->orderBy('name')
+            ->orderBy('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        if ($redirect = $this->redirectIfPaginationPageIsUnavailable($users)) {
+            return $redirect;
+        }
+
+        return view('users.index', compact('users'));
     }
 
     public function store(Request $request, ActivityLogger $activityLogger): RedirectResponse

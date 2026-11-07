@@ -2,7 +2,18 @@
 
 @section('content')
     <div class="page-toolbar dashboard-toolbar">
-        <div class="academic-year">Academic Year: <strong>{{ now()->year }}-{{ now()->year + 1 }}</strong></div>
+        <form class="dashboard-year-filter" method="GET" action="{{ route('dashboard') }}">
+            <label class="filter-field" for="dashboard-academic-year">Academic year
+                <select id="dashboard-academic-year" name="academic_year_id" @disabled($academicYears->isEmpty())>
+                    @forelse ($academicYears as $year)
+                        <option value="{{ $year->id }}" @selected((string) $selectedAcademicYearId === (string) $year->id)>{{ $year->name }}</option>
+                    @empty
+                        <option value="">No academic years available</option>
+                    @endforelse
+                </select>
+            </label>
+            <button class="button button--primary" type="submit" @disabled($academicYears->isEmpty())>Apply</button>
+        </form>
     </div>
 
     <section class="summary-grid summary-grid--four" aria-label="Financial summary">
@@ -66,6 +77,7 @@
                     </tbody>
                 </table>
             </div>
+            <div class="pagination dashboard-pagination">{{ $latestTransactions->links() }}</div>
         </article>
         <article class="panel">
             <div class="panel-heading"><div><p class="eyebrow">Audit trail</p><h2>Recent Activities</h2></div></div>
@@ -76,6 +88,7 @@
                     <li class="activity-empty">Application activity will appear here as work is recorded.</li>
                 @endforelse
             </ol>
+            <div class="pagination dashboard-pagination">{{ $activities->links() }}</div>
         </article>
     </section>
 @endsection
